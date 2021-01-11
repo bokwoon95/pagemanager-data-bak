@@ -1,0 +1,11 @@
+{{ define "header" }}
+<header class="hero-banner flex justify-center items-center">
+  <div class="tc white">
+    {{ $title2 := data_value "bokwoon95/plainsimple:header" "title" "My Blog" }}
+    {{ $title := data_value .__pageid__ "title" "My Blog" }}
+    <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:header" data-key="title">{{ $title }}</h1>
+    {{ $subtitle := data_value .__pageid__ "subtitle" "Where I write about <i>stuff</i>" }}
+    <h2 class="f3 text-border tl" data-key="subtitle">{{ $subtitle }}</h2>
+  </div>
+</header>
+{{ end }}

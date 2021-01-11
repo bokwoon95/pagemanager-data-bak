@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{ .__css__ }}
+  <title>editor</title>
+</head>
+<body>
+  <div id="editor" class="ma4" contenteditable="true" data-key="editor">
+    <h1>this is the title</h1>
+    Lorem <strong>Ip<em>su</em>m</strong> <strong>Dolor</strong> Sit Amet Hel<strong>lo <em>Wor</strong>ld</em>!!
+  </div>
+  <div id="editor2" class="ma4" contenteditable="true" data-key="editor2">
+    <h1>this is the title</h1>
+    <ul>
+      <li>H<strong>ell</strong>o W<em>orl</em>d</li>
+      <li>apple</li>
+      <li>banana</li>
+      <li>cherry</li>
+      <li>durian</li>
+    </ul>
+    <a href="https://www.google.com">this is a link</a><br>
+    H<strong>ell</strong>o W<em>orl</em>d
+    <div>apple</div>
+    <div>banana</div>
+    <div>cherry</div>
+    durian
+  </div>
+  <label for="browser">Enter a link</label>
+  <input id="browser" type="text" list="browsers">
+  <span id="link"></span>
+  <datalist id="browsers">
+    <option value="/pm-admin">
+    <option value="/admin">
+    <option value="/">
+    <option value="google.com">
+    <option value="/001">
+    <option value="/002">
+    <option value="/003">
+    <option value="/004">
+    <option value="/005">
+    <option value="/006">
+    <option value="/007">
+    <option value="/008">
+    <option value="/009">
+    <option value="/010">
+    <option value="/011">
+    <option value="/012">
+    <option value="/013">
+    <option value="/014">
+    <option value="/015">
+    <option value="/016">
+    <option value="/017">
+    <option value="/018">
+    <option value="/019">
+    <option value="/020">
+  </datalist>
+  {{ .__js__ }}
+</body>
+</html>

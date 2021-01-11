@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {{ .__css__ }}
+  <title>Post Index</title>
+</head>
+<body>
+  {{ template "header" . }}
+  {{ $posts := data_array .__pageid__ "posts" `
+    [[posts]]
+    date = "2020 June 18"
+    title = "<a href=''>HASH: a free, online platform for modeling the world</a>"
+    summary = "Sometimes simulating complex systems is the best way to understand them."
+
+    [[posts]]
+    date = "2019 December 05"
+    title = "<a href=''>So, how’s that retirement thing going, anyway?</a>"
+    summary = "For the last couple of months, Prashanth Chandrasekar has been getting settled in as the new CEO of Stack Overflow. I’m still going on some customer calls…"
+
+    [[posts]]
+    date = "2019 September 24"
+    title = "<a href=''>Welcome, Prashanth!</a>"
+    summary = "Last March, I shared that we were starting to look for a new CEO for Stack Overflow. We were looking for that rare combination of someone who…"
+
+    [[posts]]
+    date = "2019 March 28"
+    title = "<a href=''>The next CEO of Stack Overflow</a>"
+    summary = "We’re looking for a new CEO for Stack Overflow. I’m stepping out of the day-to-day and up to the role of Chairman of the Board."
+  `}}
+  <main class="posts-list pt4-l pb2-l ph7-l" data-startkey="posts">
+    {{ range $i, $post := $posts }}
+    <article>
+      <div class="f6 mt2 gray" data-endkey="[].date">{{ $post.date }}</div>
+      <div class="f3 fw7 lh-title" data-endkey="[].title">{{ $post.title }}</div>
+      <summary class="mt3" data-endkey="[].summary">{{ $post.summary }}</summary>
+      <div class="mt2 mb4"><a href="">read more</a></div>
+      <hr>
+    </article>
+    {{ end }}
+  </main>
+  <button id="submit">submit</button>
+  {{ template "footer" . }}
+  {{ .__js__ }}
+</body>
+</html>

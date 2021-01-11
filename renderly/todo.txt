@@ -1,0 +1,2 @@
+long term goals:
+- pagemanager should be able to read html/markdown files from the current folder (user-configurable) and translate it into static HTML pages in the pm_routes table. This allows users to manually edit markdown files with their favorite text editor, and also allows for large-scale collaboration by making wrapping the files in a git repo (git ignoring the pagemanager binary and sqlite database file of course).

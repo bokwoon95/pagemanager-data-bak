@@ -1,0 +1,6 @@
+["templates/editor/editor.html"]
+include = [
+    "templates/editor/editor.css",
+    "templates/editor/editor.js",
+    "templates/editor/datalist.js",
+]

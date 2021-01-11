@@ -1,0 +1,6 @@
+{{ define "footer" }}
+<footer class="flex justify-center mt5">
+  {{ $name := data_value .__pageid__ "name" "Robert Table" }}
+  <div>Copyright © 2020 <span data-key="name">{{ $name }}</span>. All rights reserved.</div>
+</footer>
+{{ end }}

@@ -1,0 +1,6 @@
+["templates/vanilla_editor/editor.html"]
+    ["templates/vanilla_editor/editor.html".content_security_policy]
+    script-src = [ "pro.fontawesome.com" ]
+    style-src = [ "pro.fontawesome.com", "fonts.googleapis.com" ]
+    img-src = [ "squaresheepstudios.com" ]
+    font-src = [ "fonts.gstatic.com", "pro.fontawesome.com" ]
