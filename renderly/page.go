@@ -19,14 +19,19 @@ import (
 	"github.com/oxtoacart/bpool"
 )
 
+// envfuncs occur in n different places:
+// 1) They can be packaged with an asset (only for js, envfuncs in css assets are ignored)
+// 2) They can be included as part of the GlobalEnvfuncs
+// 3) They can be passed in with render.PageWithEnv()
+//	- page.Render(w, r, data, filenames, )
 type Page struct {
-	bufpool       *bpool.BufferPool
-	html          *template.Template
-	css           []*Asset
-	js            []*Asset
-	prehooks      []Prehook
-	payloadsfuncs []func(*http.Request) (name string, value interface{}, err error)
-	config        map[string]string
+	bufpool  *bpool.BufferPool
+	html     *template.Template
+	css      []*Asset
+	js       []*Asset
+	prehooks []Prehook
+	envfuncs []func(*http.Request) (name string, value interface{}, err error)
+	config   map[string]string
 }
 
 func (ry *Renderly) Lookup(filenames ...string) (Page, error) {
@@ -283,6 +288,7 @@ func (page Page) CSS(w io.Writer) template.HTML {
 	}
 	if styleHashes.Len() > 0 {
 		if w, ok := w.(http.ResponseWriter); ok {
+			_ = appendCSP(w, "style-src", "'self'")
 			_ = appendCSP(w, "style-src", styleHashes.String())
 		}
 	}
@@ -294,46 +300,47 @@ func (page Page) JS(w io.Writer, r *http.Request) template.HTML {
 	scripts := &strings.Builder{}
 	scriptHashes := &strings.Builder{}
 	writepayload := func(name, payload string) {
-		data := "function " + name + "(){ return " + payload + " }"
+		data := "const " + name + " = function(){ return " + payload + " }"
 		hash := sha256.Sum256([]byte(data))
 		scripts.WriteString("<script>")
 		scripts.WriteString(data)
 		scripts.WriteString("</script>")
-		scriptHashes.WriteString("'sha256-")
+		scriptHashes.WriteString(" 'sha256-")
 		scriptHashes.WriteString(base64.StdEncoding.EncodeToString(hash[0:]))
-		scriptHashes.WriteString("'")
+		scriptHashes.WriteString("' ")
+	}
+	for _, fn := range page.envfuncs {
+		var payload string
+		name, value, err := fn(r)
+		if err != nil {
+			payload = "new Error(" + err.Error() + ")"
+			writepayload(name, payload)
+			continue
+		}
+		b, err := json.Marshal(value)
+		if err != nil {
+			payload = "new Error(" + err.Error() + ")"
+			writepayload(name, payload)
+			continue
+		}
+		writepayload(name, string(b))
+		scripts.WriteString("\n")
 	}
 	for i, asset := range page.js {
 		if i > 0 {
 			scripts.WriteString("\n")
 			scriptHashes.WriteString(" ")
 		}
-		if asset.PayloadFunc != nil {
-			var payload string
-			name, value, err := asset.PayloadFunc(r)
-			if err != nil {
-				payload = "new Error(" + err.Error() + ")"
-				writepayload(name, payload)
-				continue
-			}
-			b, err := json.Marshal(value)
-			if err != nil {
-				payload = "new Error(" + err.Error() + ")"
-				writepayload(name, payload)
-				continue
-			}
-			writepayload(name, string(b))
-			scripts.WriteString("\n")
-		}
 		scripts.WriteString("<script>")
 		scripts.WriteString(asset.Data)
 		scripts.WriteString("</script>")
-		scriptHashes.WriteString("'sha256-")
+		scriptHashes.WriteString(" 'sha256-")
 		scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.Hash[0:]))
-		scriptHashes.WriteString("'")
+		scriptHashes.WriteString("' ")
 	}
 	if scriptHashes.Len() > 0 {
 		if w, ok := w.(http.ResponseWriter); ok {
+			_ = appendCSP(w, "script-src", "'self'")
 			_ = appendCSP(w, "script-src", scriptHashes.String())
 		}
 	}

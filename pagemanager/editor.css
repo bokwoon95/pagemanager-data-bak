@@ -8,12 +8,13 @@ html {
   display: flex;
   flex-wrap: wrap;
   position: fixed;
-  top: 0;
+  bottom: 0;
   width: 100%;
   padding: 0 5px 0 5px;
+  z-index: 999;
 }
 .pm-toolbar-backing {
-  margin-bottom: 33px;
+  z-index: 999;
 }
 .pm-toolbar-button {
   background-color: white;
@@ -35,6 +36,16 @@ html {
 }
 [data-key],[data-endkey] {
   background-color: hsla(121, 54%, 68%, 0.3);
+  border-width: thin;
+  border-style: dashed;
+}
+.contenteditable {
+  background-color: hsla(121, 54%, 68%, 0.3);
+  border-width: thin;
+  border-style: dashed;
+}
+.contenteditable-selected {
+  background-color: hsla(10, 34%, 79%, 0.3);
   border-width: thin;
   border-style: dashed;
 }

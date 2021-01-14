@@ -1,0 +1,42 @@
+.pace {
+  -webkit-pointer-events: none;
+  pointer-events: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+.pace.pace-inactive .pace-progress {
+  display: none;
+}
+.pace .pace-progress {
+  position: fixed;
+  z-index: 2000;
+  top: 0;
+  right: 45%;
+  height: 5rem;
+  width: 5rem;
+}
+.pace .pace-progress:after {
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0.5rem;
+  content: attr(data-progress-text);
+  font-family: helvetica neue, sans-serif;
+  font-weight: 100;
+  font-size: 5rem;
+  line-height: 1;
+  text-align: right;
+  color: rgba(229, 146, 42, 0.9);
+}
+.closebtn {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  z-index: 99;
+}
+.surrounddotted {
+  background-color: hsla(121, 54%, 68%, 0.3);
+  border-width: thin;
+  border-style: dashed;
+}

@@ -32,15 +32,14 @@
   <main class="posts-list pt4-l pb2-l ph7-l" data-startkey="posts">
     {{ range $i, $post := $posts }}
     <article>
-      <div class="f6 mt2 gray" data-endkey="[].date">{{ $post.date }}</div>
-      <div class="f3 fw7 lh-title" data-endkey="[].title">{{ $post.title }}</div>
-      <summary class="mt3" data-endkey="[].summary">{{ $post.summary }}</summary>
+      <div class="f6 mt2 gray" data-endkeyx="[].date">{{ $post.date }}</div>
+      <div class="f3 fw7 lh-title" data-endkeyx="[].title">{{ $post.title }}</div>
+      <summary class="mt3" data-endkeyx="[].summary">{{ $post.summary }}</summary>
       <div class="mt2 mb4"><a href="">read more</a></div>
       <hr>
     </article>
     {{ end }}
   </main>
-  <button id="submit">submit</button>
   {{ template "footer" . }}
   {{ .__js__ }}
 </body>

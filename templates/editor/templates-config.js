@@ -13,9 +13,9 @@ Object.keys(templates).forEach(function (name) {
   data[prefix + name] = { include: include };
 });
 
-exports(data);
-// exports({
+return data;
+// return {
 //   "templates/editor/editor.html": {
 //     include: ["templates/editor/editor.css", "templates/editor/editor.js", "templates/editor/datalist.js"],
 //   },
-// });
+// };

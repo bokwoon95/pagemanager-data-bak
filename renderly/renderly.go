@@ -200,11 +200,11 @@ type Plugin struct {
 	JS       []*Asset
 	Prehooks []Prehook
 	// global assets
-	FuncMap           map[string]interface{}
-	GlobalCSS         []*Asset
-	GlobalJS          []*Asset
-	GlobalPrehooks    []Prehook
-	GlobalPayloadFunc []func(*http.Request) (name string, value interface{}, err error)
+	FuncMap            map[string]interface{}
+	GlobalCSS          []*Asset
+	GlobalJS           []*Asset
+	GlobalPrehooks     []Prehook
+	GlobalPayloadFuncs []func(*http.Request) (name string, value interface{}, err error)
 }
 
 func Plugins(plugins ...Plugin) Option {

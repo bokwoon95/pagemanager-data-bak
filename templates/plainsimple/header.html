@@ -1,4 +1,14 @@
 {{ define "header" }}
+<nav class="absolute w-100">
+  <ul class="flex flex-wrap justify-end list pa0" data-id="plainsimple:global" data-startkey="nav">
+    {{ if true }}
+      <li><button class="mh2 pointer">add link</button></li>
+    {{ end }}
+    <li class="nav-link"><a href="abc" data-endkey="[]">Home</a></li>
+    <li class="nav-link"><a href="abc" data-endkey="[]">About Me</a></li>
+    <li class="nav-link"><a href="abc" data-endkey="[]">Contact</a></li>
+  </ul>
+</nav>
 <header class="hero-banner flex justify-center items-center">
   <div class="tc white">
     {{ $title2 := data_value "bokwoon95/plainsimple:header" "title" "My Blog" }}

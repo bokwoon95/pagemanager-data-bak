@@ -339,17 +339,16 @@ func GetTemplateMetadata(fsys fs.FS, filename string) (TemplateMetadata, error) 
 				fmt.Println(a...)
 				return goja.Undefined()
 			})
-			vm.Set("exports", func(f goja.FunctionCall) goja.Value { return f.Argument(0) })
-			res, err := vm.RunString(string(b))
+			res, err := vm.RunString("(function(){" + string(b) + "})()")
 			if err != nil {
 				return metadata, erro.Wrap(err)
 			}
 			if res == nil {
-				return metadata, erro.Wrap(fmt.Errorf("js script returned nothing"))
+				return metadata, nil
 			}
 			m, ok := res.Export().(map[string]interface{})
 			if !ok {
-				return metadata, erro.Wrap(fmt.Errorf("js script did not return an object"))
+				return metadata, nil
 			}
 			err = mapstructure.Decode(m[filename], &metadata)
 			if err != nil {
@@ -381,7 +380,7 @@ func GetTemplateMetadata(fsys fs.FS, filename string) (TemplateMetadata, error) 
 			}
 		}
 	}
-	return metadata, erro.Wrap(fmt.Errorf("metadata file not found"))
+	return metadata, nil
 }
 
 // aliasing to dynamic URLs is not supported. If a plugin wishes to make a URL aliasable, it has to make the route static i.e. no :colon prefix, or {curly braces}/<angle brackets> delimiters.
