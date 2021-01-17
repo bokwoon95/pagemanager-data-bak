@@ -62,7 +62,6 @@ type mapkey struct {
 type Page struct {
 	bufpool      *bpool.BufferPool
 	html         *template.Template
-	htmlinclude  []string
 	css          []mapkey
 	js           []mapkey
 	htmlenvfuncs []mapkey
@@ -72,12 +71,14 @@ type Page struct {
 	fsys         MuxFS
 	jsonifydata  bool
 	inlineassets bool
+	htmlenv      map[string]interface{}
+	jsenv        map[string]interface{}
 }
 
 type MuxFS struct {
 	DefaultFS fs.FS
 	AltFS     map[string]fs.FS
-	// TODO: if the fs path starts with a space followed by the tilde prefix, the prefix is taken literally to be a part of the path (?)
+	// TODO: switch to double colon :: delimiter
 }
 
 type Renderly struct {
@@ -97,14 +98,7 @@ type Renderly struct {
 	globaljs           []mapkey
 	globalhtmlenvfuncs []mapkey
 	globaljsenvfuncs   []mapkey
-	// fs cache (user's templates only, not plugins')
-	cacheenabled bool
-	cachepage    map[string]Page
-	cachehtml    map[string]*template.Template
-	cachecss     map[string]Asset // not strictly necessary to cache fsys assets, just a premature optimization to make serving files closer to 'static' websites
-	cachejs      map[string]Asset
-	//
-	errorhandler func(http.ResponseWriter, *http.Request, error)
+	errorhandler       func(http.ResponseWriter, *http.Request, error)
 }
 
 type Option func(*Renderly) error
@@ -119,11 +113,6 @@ func New(fsys fs.FS, opts ...Option) (*Renderly, error) {
 		basetemplate: template.New(""),
 		assets:       make(map[mapkey]Asset),
 		envfuncs:     make(map[mapkey]EnvFunc),
-		// fs cache
-		cachepage: make(map[string]Page),
-		cachehtml: make(map[string]*template.Template),
-		cachecss:  make(map[string]Asset),
-		cachejs:   make(map[string]Asset),
 	}
 	var err error
 	for _, opt := range opts {
@@ -566,51 +555,43 @@ func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}) (templat
 	return template.HTML(scripts.String()), nil
 }
 
-type RenderOption func(*renderConfig)
+type RenderOption func(*Page)
 
-type renderConfig struct {
-	includefiles []string
+type RenderConfig struct {
+	fsyshtml []string
+	fsyscss  []string
+	fsysjs   []string
 }
 
 func (ry *Renderly) Page(w http.ResponseWriter, r *http.Request, data interface{}, mainfile string) {
 }
 
 func Files() RenderOption {
-	return func(config *renderConfig) {
+	return func(page *Page) {
 	}
 }
 
-func JSEnv(env map[string]interface{}) RenderOption {
-	return func(config *renderConfig) {
+func JSEnv(jsenv map[string]interface{}) RenderOption {
+	return func(page *Page) {
 	}
 }
 
-func HTMLEnv(env map[string]interface{}) RenderOption {
-	return func(config *renderConfig) {
+func HTMLEnv(htmlenv map[string]interface{}) RenderOption {
+	return func(page *Page) {
 	}
 }
 
 func JSONifyData(jsonify bool) RenderOption {
-	return func(config *renderConfig) {
+	return func(page *Page) {
 	}
 }
 
 func InlineAssets(inline bool) RenderOption {
-	return func(config *renderConfig) {
+	return func(page *Page) {
 	}
 }
 
 func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error) {
-	fullname := strings.Join(append([]string{mainfile}, includefiles...), "\n")
-	// If page is already cached for the given fullname, return that page and exit
-	if ry.cacheenabled {
-		ry.mu.RLock()
-		page, ok := ry.cachepage[fullname]
-		ry.mu.RUnlock()
-		if ok {
-			return page, nil
-		}
-	}
 	var err error
 	// Else construct the page from scratch
 	page := Page{
@@ -628,12 +609,6 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	// Add user-specified HTML templates to the page template
 	for _, filename := range append([]string{mainfile}, HTMLFiles...) {
 		var t *template.Template
-		// If the template is already cached for the given filename, use that template
-		if ry.cacheenabled {
-			ry.mu.RLock()
-			t = ry.cachehtml[filename]
-			ry.mu.RUnlock()
-		}
 		// Else construct the template from scratch
 		if t == nil {
 			b, err := ry.fsys.ReadFile(filename)
@@ -643,12 +618,6 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 			t, err = template.New(filename).Funcs(ry.funcmap).Option(ry.opts...).Parse(string(b))
 			if err != nil {
 				return page, erro.Wrap(err)
-			}
-			// Cache the template if the user enabled it
-			if ry.cacheenabled {
-				ry.mu.Lock()
-				ry.cachehtml[filename] = t
-				ry.mu.Unlock()
 			}
 		}
 		// Add to page template
@@ -723,12 +692,6 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	page.js = dedupkeys(page.js)
 	page.htmlenvfuncs = dedupkeys(page.htmlenvfuncs)
 	page.jsenvfuncs = dedupkeys(page.jsenvfuncs)
-	// Cache the page if the user enabled it
-	if ry.cacheenabled {
-		ry.mu.Lock()
-		ry.cachepage[fullname] = page
-		ry.mu.Unlock()
-	}
 	return page, nil
 }
 
@@ -791,6 +754,9 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
 			return erro.Wrap(err)
 		}
 	}
+	for key, value := range page.htmlenv {
+		htmlenv[key] = value
+	}
 	for _, key := range page.jsenvfuncs {
 		fn := page.envfuncs[key]
 		if fn == nil {
@@ -800,6 +766,9 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
 		if err != nil {
 			return erro.Wrap(err)
 		}
+	}
+	for key, value := range page.jsenv {
+		jsenv[key] = value
 	}
 	htmlenv["CSS"] = page.CSS(w)
 	htmlenv["JS"], err = page.JS(w, jsenv, htmlenv)
