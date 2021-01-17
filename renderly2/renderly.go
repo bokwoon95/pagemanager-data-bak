@@ -58,10 +58,11 @@ type mapkey struct {
 	name     string
 }
 
+// TODO: I don't fucking know
 type Page struct {
-	bufpool *bpool.BufferPool
-	html    *template.Template
-	// plugin components
+	bufpool      *bpool.BufferPool
+	html         *template.Template
+	htmlinclude  []string
 	css          []mapkey
 	js           []mapkey
 	htmlenvfuncs []mapkey
@@ -69,6 +70,8 @@ type Page struct {
 	assets       map[mapkey]Asset
 	envfuncs     map[mapkey]EnvFunc
 	fsys         MuxFS
+	jsonifydata  bool
+	inlineassets bool
 }
 
 type MuxFS struct {
@@ -78,11 +81,12 @@ type MuxFS struct {
 }
 
 type Renderly struct {
-	mu      *sync.RWMutex
-	bufpool *bpool.BufferPool
-	fsys    MuxFS
-	funcmap map[string]interface{}
-	opts    []string
+	mu         *sync.RWMutex
+	bufpool    *bpool.BufferPool
+	fsys       MuxFS
+	funcmap    map[string]interface{}
+	opts       []string
+	fsysprefix string
 	// plugins
 	pluginCount        int
 	basetemplate       *template.Template
@@ -571,12 +575,27 @@ type renderConfig struct {
 func (ry *Renderly) Page(w http.ResponseWriter, r *http.Request, data interface{}, mainfile string) {
 }
 
-func Include() RenderOption {
+func Files() RenderOption {
 	return func(config *renderConfig) {
 	}
 }
 
-func JSEnvFuncs() RenderOption {
+func JSEnv(env map[string]interface{}) RenderOption {
+	return func(config *renderConfig) {
+	}
+}
+
+func HTMLEnv(env map[string]interface{}) RenderOption {
+	return func(config *renderConfig) {
+	}
+}
+
+func JSONifyData(jsonify bool) RenderOption {
+	return func(config *renderConfig) {
+	}
+}
+
+func InlineAssets(inline bool) RenderOption {
 	return func(config *renderConfig) {
 	}
 }
