@@ -1,17 +1,22 @@
-package renderly
+package renderly2
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
-	"text/template"
 	"text/template/parse"
 
 	"github.com/bokwoon95/erro"
@@ -125,6 +130,21 @@ func New(fsys fs.FS, opts ...Option) (*Renderly, error) {
 	}
 	// ry.cacheenabled = true
 	return ry, nil
+}
+
+func dedupkeys(keys []mapkey) []mapkey {
+	set := make(map[mapkey]struct{})
+	n := 0
+	for _, key := range keys {
+		if _, ok := set[key]; ok {
+			continue
+		}
+		set[key] = struct{}{}
+		keys[n] = key
+		n++
+	}
+	keys = keys[:n]
+	return keys
 }
 
 func categorize(names []string) (html, css, js []string) {
@@ -448,6 +468,119 @@ func Plugins(plugins ...Plugin) Option {
 	}
 }
 
+func appendCSP(w http.ResponseWriter, policy, value string) error {
+	const key = "Content-Security-Policy"
+	CSP := w.Header().Get(key)
+	if CSP == "" {
+		// NOTE: if no CSP exists, I may not want to create it in case the user wants CSP off
+		w.Header().Set(key, policy+" "+value)
+		return nil
+	}
+	CSP = strings.ReplaceAll(CSP, "\n", " ") // newlines screw up the regex matching, remove them
+	re, err := regexp.Compile(`(.*` + policy + `[^;]*)(;|$)(.*)`)
+	if err != nil {
+		return erro.Wrap(err)
+	}
+	matches := re.FindStringSubmatch(CSP)
+	if len(matches) == 0 {
+		w.Header().Set(key, CSP+"; "+policy+" "+value)
+		return nil
+	}
+	newCSP := matches[1] + " " + value + matches[2] + matches[3]
+	w.Header().Set("Content-Security-Policy", newCSP)
+	return nil
+}
+
+func (page Page) CSS(w io.Writer) template.HTML {
+	// Generate Content-Security-Policy script-src
+	styles := &strings.Builder{}
+	styleHashes := &strings.Builder{}
+	for i, key := range page.css {
+		if i > 0 {
+			styles.WriteString("\n")
+			styleHashes.WriteString(" ")
+		}
+		asset := page.assets[key]
+		styles.WriteString("<style>")
+		styles.WriteString(asset.Data)
+		styles.WriteString("</style>")
+		styleHashes.WriteString("'sha256-")
+		styleHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
+		styleHashes.WriteString("'")
+	}
+	if styleHashes.Len() > 0 {
+		if w, ok := w.(http.ResponseWriter); ok {
+			_ = appendCSP(w, "style-src", "'self'") // NOTE: this may need to be removed
+			_ = appendCSP(w, "style-src", styleHashes.String())
+		}
+	}
+	return template.HTML(styles.String())
+}
+
+func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}) (template.HTML, error) {
+	// Generate Content-Security-Policy script-src
+	scripts := &strings.Builder{}
+	scriptHashes := &strings.Builder{}
+	b, err := json.Marshal(jsenv)
+	if err != nil {
+		return "", erro.Wrap(err)
+	}
+	b = bytes.ReplaceAll(b, []byte(`"`), []byte(`\"`))
+	envscript := `const Env = (function () {
+  const env = JSON.parse("` + string(b) + `");
+  return function (key) {
+    return env[key];
+  };
+})();`
+	envhash := sha256.Sum256([]byte(envscript))
+	scripts.WriteString("<script>")
+	scripts.WriteString(envscript)
+	scripts.WriteString("</script>")
+	scriptHashes.WriteString(" 'sha256-")
+	scriptHashes.WriteString(base64.StdEncoding.EncodeToString(envhash[0:]))
+	scriptHashes.WriteString("' ")
+	for i, key := range page.js {
+		if i > 0 {
+			scripts.WriteString("\n")
+			scriptHashes.WriteString(" ")
+		}
+		asset := page.assets[key]
+		scripts.WriteString("<script>")
+		scripts.WriteString(asset.Data)
+		scripts.WriteString("</script>")
+		scriptHashes.WriteString(" 'sha256-")
+		scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
+		scriptHashes.WriteString("' ")
+	}
+	if scriptHashes.Len() > 0 {
+		if w, ok := w.(http.ResponseWriter); ok {
+			_ = appendCSP(w, "script-src", "'self'") // NOTE: this may need to be removed
+			_ = appendCSP(w, "script-src", scriptHashes.String())
+		}
+	}
+	htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv="Content-Security-Policy" content="` + scriptHashes.String() + `">`)
+	return template.HTML(scripts.String()), nil
+}
+
+type RenderOption func(*renderConfig)
+
+type renderConfig struct {
+	includefiles []string
+}
+
+func (ry *Renderly) Page(w http.ResponseWriter, r *http.Request, data interface{}, mainfile string) {
+}
+
+func Include() RenderOption {
+	return func(config *renderConfig) {
+	}
+}
+
+func JSEnvFuncs() RenderOption {
+	return func(config *renderConfig) {
+	}
+}
+
 func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error) {
 	fullname := strings.Join(append([]string{mainfile}, includefiles...), "\n")
 	// If page is already cached for the given fullname, return that page and exit
@@ -522,9 +655,12 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	// For each depedency template, figure out the corresponding set of
 	// CSS/JS/HTMLEnvFuncs/JSEnvFuncs to include in the page.
 	for _, componentName := range depedencies {
+		if t := page.html.Lookup(componentName); t != nil {
+			continue
+		}
 		component, ok := ry.components[componentName]
 		if !ok {
-			continue
+			return page, erro.Wrap(fmt.Errorf("{{ template %s }} was referenced but does not exist", componentName))
 		}
 		err = addParseTree(page.html, component.HTML, componentName)
 		if err != nil {
@@ -564,6 +700,10 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 		page.js = append(page.js, mapkey{name: filename})
 	}
 	// TODO: dedup page.css, page.js, page.htmlenvfuncs, page.jsenvfuncs
+	page.css = dedupkeys(page.css)
+	page.js = dedupkeys(page.js)
+	page.htmlenvfuncs = dedupkeys(page.htmlenvfuncs)
+	page.jsenvfuncs = dedupkeys(page.jsenvfuncs)
 	// Cache the page if the user enabled it
 	if ry.cacheenabled {
 		ry.mu.Lock()
@@ -582,6 +722,45 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
 	}
 	htmlenv := make(map[string]interface{})
 	jsenv := make(map[string]interface{})
+	switch data := data.(type) {
+	case map[string]interface{}:
+		env, _ := data["Env"].(map[string]interface{})
+		if env != nil {
+			htmlenv = env
+		} else {
+			data["Env"] = htmlenv
+		}
+	default:
+		vptr := reflect.ValueOf(data)
+		v := reflect.Indirect(vptr)
+		if v.Kind() != reflect.Struct {
+			break
+		}
+		vtype := v.Type()
+		for i := 0; i < v.NumField(); i++ {
+			if vtype.Field(i).Tag.Get("renderly") != "Env" {
+				continue
+			}
+			field := v.Field(i)
+			switch env := field.Interface().(type) {
+			case map[string]interface{}:
+				if !field.CanSet() {
+					if vptr.Kind() == v.Kind() {
+						return erro.Wrap(fmt.Errorf("unable to set tagged field, please pass in a pointer instead"))
+					}
+					return erro.Wrap(fmt.Errorf("unable to set field tagged `Env`"))
+				}
+				if env != nil {
+					htmlenv = env
+				} else {
+					field.Set(reflect.ValueOf(htmlenv)) // NOTE: may panic if type don't match
+				}
+			default:
+				return erro.Wrap(fmt.Errorf("tagged field is not a map[string]interface{}"))
+			}
+			break
+		}
+	}
 	var err error
 	for _, key := range page.htmlenvfuncs {
 		fn := page.envfuncs[key]
@@ -603,28 +782,10 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
 			return erro.Wrap(err)
 		}
 	}
-	if data == nil {
-		data = make(map[string]interface{})
-	}
-	if mapdata, ok := data.(map[string]interface{}); ok {
-		if len(page.css) > 0 {
-			mapdata["__css__"] = page.CSS(w)
-		}
-		if len(page.js) > 0 {
-			mapdata["__js__"] = page.JS(w, r)
-		}
-		if w, ok := w.(http.ResponseWriter); ok {
-			w.Header().Set("Content-Type", "text/html")
-			// this must be computed -AFTER- making the necessary changes to the
-			// CSP header! So that it will reflect the latest version of CSP.
-			if CSP := w.Header().Get("Content-Security-Policy"); CSP != "" {
-				CSP = r1.ReplaceAllString(CSP, "") // not sure if this is worth doing but ok
-				mapdata["__Content_Security_Policy__"] = template.HTML(fmt.Sprintf(`<meta http-equiv="Content-Security-Policy" content="%s">`, CSP))
-			}
-		} else {
-			mapdata["__Content_Security_Policy__"] = template.HTML(`<meta http-equiv="Content-Security-Policy" content="">`)
-		}
-		data = mapdata
+	htmlenv["CSS"] = page.CSS(w)
+	htmlenv["JS"], err = page.JS(w, jsenv, htmlenv)
+	if err != nil {
+		return erro.Wrap(err)
 	}
 	err = executeTemplate(page.html, page.bufpool, w, page.html.Name(), data)
 	if err != nil {
