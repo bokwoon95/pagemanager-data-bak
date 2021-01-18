@@ -1,21 +1,28 @@
 {{ define "header" }}
 <nav class="absolute w-100">
-  <ul class="flex flex-wrap justify-end list pa0" data-id="plainsimple:global" data-startkey="nav">
-    {{ if true }}
-      <li><button class="mh2 pointer">add link</button></li>
+  <ul class="flex flex-wrap justify-end list pa0">
+    {{ if .Env.editMode }}
+    <li><button class="mh2 pointer">add item</button></li>
     {{ end }}
-    <li class="nav-link"><a href="abc" data-endkey="[]">Home</a></li>
-    <li class="nav-link"><a href="abc" data-endkey="[]">About Me</a></li>
-    <li class="nav-link"><a href="abc" data-endkey="[]">Contact</a></li>
+    {{ range $i, $row := getRows .Env "nav" }}
+    <li class="nav-link"><a href="{{ $row.link }}" data-key-href="nav[].link" data-key="nav[].title">{{ $row.title }}</a></li>
+    {{ else }}
+    <li class="nav-link"><a href="/" data-key-href="nav[].link" data-key="nav[].title">Home</a></li>
+    <li class="nav-link"><a href="/about-me" data-key-href="nav[].link" data-key="nav[].title">About Me</a></li>
+    <li class="nav-link"><a href="/contact" data-key-href="nav[].link" data-key="nav[].title">Contact</a></li>
+    {{ end }}
   </ul>
 </nav>
 <header class="hero-banner flex justify-center items-center">
   <div class="tc white">
-    {{ $title2 := data_value "bokwoon95/plainsimple:header" "title" "My Blog" }}
-    {{ $title := data_value .__pageid__ "title" "My Blog" }}
-    <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:header" data-key="title">{{ $title }}</h1>
-    {{ $subtitle := data_value .__pageid__ "subtitle" "Where I write about <i>stuff</i>" }}
-    <h2 class="f3 text-border tl" data-key="subtitle">{{ $subtitle }}</h2>
+    {{ $title := getValueWithID .Env "title" "bokwoon95/plainsimple:globals" }}
+    <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:globals" data-key="title">
+      {{ if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end }}
+    </h1>
+    {{ $subtitle := getValueWithID .Env "subtitle" "bokwoon95/plainsimple:globals" }}
+    <h2 class="f3 text-border tl" data-id="bokwoon95/plainsimple:globals" data-key="subtitle">
+      {{ if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end }}
+    </h2>
   </div>
 </header>
 {{ end }}

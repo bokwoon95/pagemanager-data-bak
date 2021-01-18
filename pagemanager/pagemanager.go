@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/bokwoon95/erro"
@@ -111,7 +110,7 @@ func (pm *PageManager) Setup() error {
 	// render
 	pm.render, err = renderly.New(pm.fsys,
 		renderly.AltFS("builtin", builtin),
-		renderly.Plugins(pm.RenderlyPlugin()),
+		// renderly.Plugins(pm.RenderlyPlugin()),
 	)
 	if err != nil {
 		return erro.Wrap(err)
@@ -517,7 +516,7 @@ var tables = []table{
 	{
 		name: "pm_templatedata",
 		columns: []column{
-			{name: "pageid", typ: "TEXT", constraints: []string{"NOT NULL", "PRIMARY KEY"}},
+			{name: "id", typ: "TEXT", constraints: []string{"NOT NULL", "PRIMARY KEY"}},
 			{name: "data", typ: "JSON"},
 		},
 	},
@@ -571,173 +570,110 @@ func ensuretables(driver string, db *sql.DB) error {
 	return nil
 }
 
+func EnvFunc(w io.Writer, r *http.Request, env map[string]interface{}) error {
+	env["PageID"] = r.URL.Path
+	env["EditMode"] = false
+	return nil
+}
+
 func (pm *PageManager) FuncMap() map[string]interface{} {
 	funcmap := map[string]interface{}{
-		"safeHTML":   func(s string) template.HTML { return template.HTML(s) },
-		"safeJS":     func(s string) template.JS { return template.JS(s) },
-		"sqlvalue":   sqlvalue,
-		"data_value": pm.data_value,
-		"data_table": pm.data_table,
-		"data_array": pm.data_array,
+		"safeHTML":       func(s string) template.HTML { return template.HTML(s) },
+		"safeJS":         func(s string) template.JS { return template.JS(s) },
+		"getValue":       pm.getValue,
+		"getValueWithID": pm.getValueWithID,
+		"getRows":        pm.getRows,
+		"getRowsWithID":  pm.getRowsWithID,
 	}
 	return funcmap
 }
 
-func sqlvalue(v interface{}) string {
-	var s string
-	switch v := v.(type) {
-	case sql.NullString:
-		if v.Valid {
-			s = v.String
-		} else {
-			s = "𝗡𝗨𝗟𝗟"
-		}
-	case sql.NullInt64:
-		if v.Valid {
-			s = strconv.FormatInt(v.Int64, 10)
-		} else {
-			s = "𝗡𝗨𝗟𝗟"
-		}
-	case sql.NullBool:
-		if v.Valid {
-			if v.Bool {
-				s = "true"
-			} else {
-				s = "false"
-			}
-		} else {
-			s = "𝗡𝗨𝗟𝗟"
-		}
-	default:
-		s = fmt.Sprint(v)
+func (pm *PageManager) getValue(env map[string]interface{}, key string) (interface{}, error) {
+	id, ok := env["PageID"].(string)
+	if !ok {
+		return nil, nil
 	}
-	return s
+	return pm.getValueWithID(env, key, id)
 }
 
-func (pm *PageManager) data_value(pageID, key, fallbackValue string) (template.HTML, error) {
+func (pm *PageManager) getValueWithID(env map[string]interface{}, key, id string) (interface{}, error) {
 	var value sql.NullString
-	query := "SELECT json_extract(data, ?) FROM pm_templatedata WHERE pageid = ?"
-	err := pm.db.QueryRow(query, "$."+key, pageID).Scan(&value)
+	query := "SELECT json_extract(data, ?) FROM pm_templatedata WHERE id = ?"
+	err := pm.db.QueryRow(query, "$."+key, id).Scan(&value)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", err
+		return nil, err
 	}
 	if value.Valid {
 		return template.HTML(value.String), nil
 	}
-	return template.HTML(fallbackValue), nil
+	return nil, nil
 }
 
-func (pm *PageManager) data_table(pageID, key, fallbackValue string) (map[string]interface{}, error) {
+func (pm *PageManager) getRows(env map[string]interface{}, key string) ([]interface{}, error) {
+	id, ok := env["PageID"].(string)
+	if !ok {
+		return nil, nil
+	}
+	return pm.getRowsWithID(env, key, id)
+}
+
+func (pm *PageManager) getRowsWithID(env map[string]interface{}, key, id string) ([]interface{}, error) {
 	var s sql.NullString
-	var table map[string]interface{}
-	query := "SELECT json_extract(data, ?) FROM pm_templatedata WHERE pageid = ?"
-	err := pm.db.QueryRow(query, "$."+key, pageID).Scan(&s)
+	query := "SELECT json_extract(data, ?) FROM pm_templatedata WHERE id = ?"
+	err := pm.db.QueryRow(query, "$."+key, id).Scan(&s)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return table, err
+		return nil, err
 	}
-	if s.Valid {
-		err = json.Unmarshal([]byte(s.String), &table)
-		if err != nil {
-			return table, err
-		}
-		pm.htmlize_map(table)
-		return table, nil
-	}
-	var fallbackTable map[string]interface{}
-	err = toml.Unmarshal([]byte(fallbackValue), &fallbackTable)
-	if err != nil {
-		return fallbackTable, err
-	}
-	pm.htmlize_map(fallbackTable)
-	return fallbackTable, nil
-}
-
-func (pm *PageManager) data_array(pageID, key, fallbackValue string) ([]interface{}, error) {
-	var s sql.NullString
 	var array []interface{}
-	query := "SELECT json_extract(data, ?) FROM pm_templatedata WHERE pageid = ?"
-	err := pm.db.QueryRow(query, "$."+key, pageID).Scan(&s)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return array, err
-	}
 	if s.Valid {
 		err = json.Unmarshal([]byte(s.String), &array)
 		if err != nil {
 			return array, err
 		}
-		for i, v := range array {
-			switch v := v.(type) {
-			case map[string]interface{}:
-				pm.htmlize_map(v)
-			default:
-				array[i] = template.HTML(fmt.Sprint(v))
-			}
-		}
 		return array, nil
 	}
-	var fallbackArray map[string]interface{}
-	err = toml.Unmarshal([]byte(fallbackValue), &fallbackArray)
-	if err != nil {
-		return nil, err
-	}
-	value := fallbackArray[key]
-	array = array[:0]
-	switch underlyingValue := value.(type) {
-	case []map[string]interface{}:
-		for _, v := range underlyingValue {
-			pm.htmlize_map(v)
-			array = append(array, v)
-		}
-		return array, nil
-	case []interface{}:
-		for i, v := range underlyingValue {
-			underlyingValue[i] = template.HTML(fmt.Sprint(v))
-		}
-		return underlyingValue, nil
-	default:
-		return nil, fmt.Errorf("not an array: %#v", value)
-	}
+	return nil, nil
 }
 
-func (pm *PageManager) htmlize_map(data map[string]interface{}) {
-	for key, value := range data {
-		switch value := value.(type) {
-		case map[string]interface{}:
-			pm.htmlize_map(value)
-		case string:
-			data[key] = template.HTML(pm.htmlPolicy.Sanitize(value))
-		default:
-			return
-		}
-	}
-}
+// func (pm *PageManager) htmlize_map(data map[string]interface{}) {
+// 	for key, value := range data {
+// 		switch value := value.(type) {
+// 		case map[string]interface{}:
+// 			pm.htmlize_map(value)
+// 		case string:
+// 			data[key] = template.HTML(pm.htmlPolicy.Sanitize(value))
+// 		default:
+// 			return
+// 		}
+// 	}
+// }
 
-func (pm *PageManager) RenderlyPlugin() renderly.Plugin {
-	plugin := renderly.Plugin{}
-	// CSS
-	b, err := fs.ReadFile(builtin, "tachyons.min.css")
-	if err != nil {
-		plugin.Err = err
-		return plugin
-	}
-	tachyons := &renderly.Asset{Data: string(b)}
-	plugin.GlobalCSS = append(plugin.GlobalCSS, tachyons)
-	// FuncMap
-	plugin.FuncMap = make(map[string]interface{})
-	for _, funcmap := range []map[string]interface{}{renderly.FuncMap(), pm.FuncMap()} {
-		for name, fn := range funcmap {
-			plugin.FuncMap[name] = fn
-		}
-	}
-	// Prehooks
-	addPageID := func(w io.Writer, r *http.Request, data interface{}) (interface{}, error) {
-		mapdata, ok := data.(map[string]interface{})
-		if !ok {
-			return data, nil
-		}
-		mapdata["__pageid__"] = r.URL.Path
-		return mapdata, nil
-	}
-	plugin.GlobalPrehooks = append(plugin.GlobalPrehooks, addPageID)
-	return plugin
-}
+// func (pm *PageManager) RenderlyPlugin() renderly.Plugin {
+// 	plugin := renderly.Plugin{}
+// 	// CSS
+// 	b, err := fs.ReadFile(builtin, "tachyons.min.css")
+// 	if err != nil {
+// 		plugin.Err = err
+// 		return plugin
+// 	}
+// 	tachyons := &renderly.Asset{Data: string(b)}
+// 	plugin.GlobalCSS = append(plugin.GlobalCSS, tachyons)
+// 	// FuncMap
+// 	plugin.FuncMap = make(map[string]interface{})
+// 	for _, funcmap := range []map[string]interface{}{renderly.FuncMap(), pm.FuncMap()} {
+// 		for name, fn := range funcmap {
+// 			plugin.FuncMap[name] = fn
+// 		}
+// 	}
+// 	// Prehooks
+// 	addPageID := func(w io.Writer, r *http.Request, data interface{}) (interface{}, error) {
+// 		mapdata, ok := data.(map[string]interface{})
+// 		if !ok {
+// 			return data, nil
+// 		}
+// 		mapdata["__pageid__"] = r.URL.Path
+// 		return mapdata, nil
+// 	}
+// 	plugin.GlobalPrehooks = append(plugin.GlobalPrehooks, addPageID)
+// 	return plugin
+// }

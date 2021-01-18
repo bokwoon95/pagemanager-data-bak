@@ -69,16 +69,6 @@ type Page struct {
 	assets       map[mapkey]Asset
 	envfuncs     map[mapkey]EnvFunc
 	fsys         MuxFS
-	jsonifydata  bool
-	inlineassets bool
-	htmlenv      map[string]interface{}
-	jsenv        map[string]interface{}
-}
-
-type MuxFS struct {
-	DefaultFS fs.FS
-	AltFS     map[string]fs.FS
-	// TODO: switch to double colon :: delimiter
 }
 
 type Renderly struct {
@@ -101,12 +91,18 @@ type Renderly struct {
 	errorhandler       func(http.ResponseWriter, *http.Request, error)
 }
 
+type MuxFS struct {
+	DefaultFS fs.FS
+	AltFS     map[string]fs.FS
+	// TODO: switch to double colon :: delimiter
+}
+
 type Option func(*Renderly) error
 
 func New(fsys fs.FS, opts ...Option) (*Renderly, error) {
 	ry := &Renderly{
 		mu:      &sync.RWMutex{},
-		fsys:    MuxFS{AltFS: make(map[string]fs.FS)},
+		fsys:    MuxFS{DefaultFS: fsys, AltFS: make(map[string]fs.FS)},
 		bufpool: bpool.NewBufferPool(64),
 		funcmap: make(map[string]interface{}),
 		// plugin
@@ -465,8 +461,7 @@ func appendCSP(w http.ResponseWriter, policy, value string) error {
 	const key = "Content-Security-Policy"
 	CSP := w.Header().Get(key)
 	if CSP == "" {
-		// NOTE: if no CSP exists, I may not want to create it in case the user wants CSP off
-		w.Header().Set(key, policy+" "+value)
+		// w.Header().Set(key, policy+" "+value)
 		return nil
 	}
 	CSP = strings.ReplaceAll(CSP, "\n", " ") // newlines screw up the regex matching, remove them
@@ -480,12 +475,11 @@ func appendCSP(w http.ResponseWriter, policy, value string) error {
 		return nil
 	}
 	newCSP := matches[1] + " " + value + matches[2] + matches[3]
-	w.Header().Set("Content-Security-Policy", newCSP)
+	w.Header().Set(key, newCSP)
 	return nil
 }
 
-func (page Page) CSS(w io.Writer) template.HTML {
-	// Generate Content-Security-Policy script-src
+func (page Page) CSS(w io.Writer, inline bool) (template.HTML, error) {
 	styles := &strings.Builder{}
 	styleHashes := &strings.Builder{}
 	for i, key := range page.css {
@@ -493,7 +487,23 @@ func (page Page) CSS(w io.Writer) template.HTML {
 			styles.WriteString("\n")
 			styleHashes.WriteString(" ")
 		}
-		asset := page.assets[key]
+		var asset Asset
+		if key.pluginID == 0 {
+			b, err := page.fsys.ReadFile(key.name)
+			if err != nil {
+				return "", erro.Wrap(err)
+			}
+			asset = Asset{
+				Data: string(b),
+				hash: sha256.Sum256(b),
+			}
+		} else {
+			var ok bool
+			asset, ok = page.assets[key]
+			if !ok {
+				return "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
+			}
+		}
 		styles.WriteString("<style>")
 		styles.WriteString(asset.Data)
 		styles.WriteString("</style>")
@@ -507,10 +517,10 @@ func (page Page) CSS(w io.Writer) template.HTML {
 			_ = appendCSP(w, "style-src", styleHashes.String())
 		}
 	}
-	return template.HTML(styles.String())
+	return template.HTML(styles.String()), nil
 }
 
-func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}) (template.HTML, error) {
+func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}, inline bool) (template.HTML, error) {
 	// Generate Content-Security-Policy script-src
 	scripts := &strings.Builder{}
 	scriptHashes := &strings.Builder{}
@@ -519,7 +529,7 @@ func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}) (templat
 		return "", erro.Wrap(err)
 	}
 	b = bytes.ReplaceAll(b, []byte(`"`), []byte(`\"`))
-	envscript := `const Env = (function () {
+	envscript := `window.Env = (function () {
   const env = JSON.parse("` + string(b) + `");
   return function (key) {
     return env[key];
@@ -537,7 +547,23 @@ func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}) (templat
 			scripts.WriteString("\n")
 			scriptHashes.WriteString(" ")
 		}
-		asset := page.assets[key]
+		var asset Asset
+		if key.pluginID == 0 {
+			b, err := page.fsys.ReadFile(key.name)
+			if err != nil {
+				return "", erro.Wrap(err)
+			}
+			asset = Asset{
+				Data: string(b),
+				hash: sha256.Sum256(b),
+			}
+		} else {
+			var ok bool
+			asset, ok = page.assets[key]
+			if !ok {
+				return "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
+			}
+		}
 		scripts.WriteString("<script>")
 		scripts.WriteString(asset.Data)
 		scripts.WriteString("</script>")
@@ -545,50 +571,64 @@ func (page Page) JS(w io.Writer, jsenv, htmlenv map[string]interface{}) (templat
 		scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
 		scriptHashes.WriteString("' ")
 	}
+	var CSP string
 	if scriptHashes.Len() > 0 {
 		if w, ok := w.(http.ResponseWriter); ok {
 			_ = appendCSP(w, "script-src", "'self'") // NOTE: this may need to be removed
 			_ = appendCSP(w, "script-src", scriptHashes.String())
+			CSP = w.Header().Get("Content-Security-Policy")
 		}
 	}
-	htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv="Content-Security-Policy" content="` + scriptHashes.String() + `">`)
+	if CSP == "" {
+		CSP = "script-src " + scriptHashes.String()
+	}
+	htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv="Content-Security-Policy" content="` + CSP + `">`)
 	return template.HTML(scripts.String()), nil
 }
 
-type RenderOption func(*Page)
+type RenderOption func(*RenderConfig)
 
 type RenderConfig struct {
-	fsyshtml []string
-	fsyscss  []string
-	fsysjs   []string
-}
-
-func (ry *Renderly) Page(w http.ResponseWriter, r *http.Request, data interface{}, mainfile string) {
-}
-
-func Files() RenderOption {
-	return func(page *Page) {
-	}
+	htmlenv      map[string]interface{}
+	jsenv        map[string]interface{}
+	jsonifydata  bool
+	inlineassets bool
 }
 
 func JSEnv(jsenv map[string]interface{}) RenderOption {
-	return func(page *Page) {
+	return func(config *RenderConfig) {
+		config.jsenv = jsenv
 	}
 }
 
 func HTMLEnv(htmlenv map[string]interface{}) RenderOption {
-	return func(page *Page) {
+	return func(config *RenderConfig) {
+		config.htmlenv = htmlenv
 	}
 }
 
 func JSONifyData(jsonify bool) RenderOption {
-	return func(page *Page) {
+	return func(config *RenderConfig) {
+		config.jsonifydata = jsonify
 	}
 }
 
 func InlineAssets(inline bool) RenderOption {
-	return func(page *Page) {
+	return func(config *RenderConfig) {
+		config.inlineassets = inline
 	}
+}
+
+func (ry *Renderly) Page(w io.Writer, r *http.Request, mainfile string, includefiles []string, data interface{}, opts ...RenderOption) error {
+	page, err := ry.Lookup(mainfile, includefiles...)
+	if err != nil {
+		return erro.Wrap(err)
+	}
+	err = page.Render(w, r, data, opts...)
+	if err != nil {
+		return erro.Wrap(err)
+	}
+	return nil
 }
 
 func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error) {
@@ -596,8 +636,9 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	// Else construct the page from scratch
 	page := Page{
 		bufpool:  ry.bufpool,
-		assets:   make(map[mapkey]Asset),
-		envfuncs: make(map[mapkey]EnvFunc),
+		assets:   ry.assets,
+		envfuncs: ry.envfuncs,
+		fsys:     ry.fsys,
 	}
 	// Clone the page template from the base template
 	page.html, err = ry.basetemplate.Clone()
@@ -687,7 +728,6 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	for _, filename := range JSFiles {
 		page.js = append(page.js, mapkey{name: filename})
 	}
-	// TODO: dedup page.css, page.js, page.htmlenvfuncs, page.jsenvfuncs
 	page.css = dedupkeys(page.css)
 	page.js = dedupkeys(page.js)
 	page.htmlenvfuncs = dedupkeys(page.htmlenvfuncs)
@@ -695,12 +735,16 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	return page, nil
 }
 
-func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
+func (page Page) Render(w io.Writer, r *http.Request, data interface{}, opts ...RenderOption) error {
 	if data == nil {
 		data = make(map[string]interface{})
 	}
 	if page.bufpool == nil || page.html == nil {
 		return fmt.Errorf("tried to render an empty page")
+	}
+	config := &RenderConfig{}
+	for _, opt := range opts {
+		opt(config)
 	}
 	htmlenv := make(map[string]interface{})
 	jsenv := make(map[string]interface{})
@@ -754,7 +798,7 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
 			return erro.Wrap(err)
 		}
 	}
-	for key, value := range page.htmlenv {
+	for key, value := range config.htmlenv {
 		htmlenv[key] = value
 	}
 	for _, key := range page.jsenvfuncs {
@@ -767,13 +811,20 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}) error {
 			return erro.Wrap(err)
 		}
 	}
-	for key, value := range page.jsenv {
+	for key, value := range config.jsenv {
 		jsenv[key] = value
 	}
-	htmlenv["CSS"] = page.CSS(w)
-	htmlenv["JS"], err = page.JS(w, jsenv, htmlenv)
+	htmlenv["CSS"], err = page.CSS(w, config.inlineassets)
 	if err != nil {
 		return erro.Wrap(err)
+	}
+	htmlenv["JS"], err = page.JS(w, jsenv, htmlenv, config.inlineassets)
+	if err != nil {
+		return erro.Wrap(err)
+	}
+	if config.jsonifydata {
+		// TODO: jsonify data
+		return nil
 	}
 	err = executeTemplate(page.html, page.bufpool, w, page.html.Name(), data)
 	if err != nil {

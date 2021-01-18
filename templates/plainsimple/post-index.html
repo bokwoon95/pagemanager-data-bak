@@ -3,44 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  {{ .__css__ }}
+  {{ .Env.ContentSecurityPolicy }}
+  {{ .Env.CSS }}
   <title>Post Index</title>
 </head>
 <body>
   {{ template "header" . }}
-  {{ $posts := data_array .__pageid__ "posts" `
-    [[posts]]
-    date = "2020 June 18"
-    title = "<a href=''>HASH: a free, online platform for modeling the world</a>"
-    summary = "Sometimes simulating complex systems is the best way to understand them."
-
-    [[posts]]
-    date = "2019 December 05"
-    title = "<a href=''>So, how’s that retirement thing going, anyway?</a>"
-    summary = "For the last couple of months, Prashanth Chandrasekar has been getting settled in as the new CEO of Stack Overflow. I’m still going on some customer calls…"
-
-    [[posts]]
-    date = "2019 September 24"
-    title = "<a href=''>Welcome, Prashanth!</a>"
-    summary = "Last March, I shared that we were starting to look for a new CEO for Stack Overflow. We were looking for that rare combination of someone who…"
-
-    [[posts]]
-    date = "2019 March 28"
-    title = "<a href=''>The next CEO of Stack Overflow</a>"
-    summary = "We’re looking for a new CEO for Stack Overflow. I’m stepping out of the day-to-day and up to the role of Chairman of the Board."
-  `}}
-  <main class="posts-list pt4-l pb2-l ph7-l" data-startkey="posts">
-    {{ range $i, $post := $posts }}
+  <main class="posts-list pt4-l pb2-l ph7-l">
+    {{ range $i, $post := getRows .Env "posts" }}
     <article>
-      <div class="f6 mt2 gray" data-endkeyx="[].date">{{ $post.date }}</div>
-      <div class="f3 fw7 lh-title" data-endkeyx="[].title">{{ $post.title }}</div>
-      <summary class="mt3" data-endkeyx="[].summary">{{ $post.summary }}</summary>
-      <div class="mt2 mb4"><a href="">read more</a></div>
+      <div class="f6 mt2 gray" data-key="posts[].date">{{ $post.date | safeHTML }}</div>
+      <div class="f3 fw7 lh-title" data-key="posts[].title">{{ $post.title | safeHTML }}</div>
+      <summary class="mt3" data-key="posts[].summary">{{ $post.summary | safeHTML }}</summary>
+      <div class="mt2 mb4"><a href="{{ $post.link }}" data-key="posts[].link">read more</a></div>
+      <hr>
+    </article>
+    {{ else }}
+    <article>
+      <div class="f6 mt2 gray" data-key="posts[].date">2020 June 18</div>
+      <div class="f3 fw7 lh-title" data-key="posts[].title"><a href="">HASH: a free, online platform for modeling the world</a></div>
+      <summary class="mt3" data-key="posts[].summary">Sometimes simulating complex systems is the best way to understand them.</summary>
+      <div class="mt2 mb4"><a href="" data-key="posts[].link">read more</a></div>
+      <hr>
+    </article>
+    <article>
+      <div class="f6 mt2 gray" data-key="posts[].date">2019 December 05</div>
+      <div class="f3 fw7 lh-title" data-key="posts[].title"><a href="">So, how’s that retirement thing going, anyway?</a></div>
+      <summary class="mt3" data-key="posts[].summary">For the last couple of months, Prashanth Chandrasekar has been getting settled in as the new CEO of Stack Overflow. I’m still going on some customer calls…</summary>
+      <div class="mt2 mb4"><a href="" data-key="posts[].link">read more</a></div>
+      <hr>
+    </article>
+    <article>
+      <div class="f6 mt2 gray" data-key="posts[].date">2019 September 24</div>
+      <div class="f3 fw7 lh-title" data-key="posts[].title"><a href="">Welcome, Prashanth!</a></div>
+      <summary class="mt3" data-key="posts[].summary">Last March, I shared that we were starting to look for a new CEO for Stack Overflow. We were looking for that rare combination of someone who…</summary>
+      <div class="mt2 mb4"><a href="" data-key="posts[].link">read more</a></div>
+      <hr>
+    </article>
+    <article>
+      <div class="f6 mt2 gray" data-key="posts[].date">2019 March 28</div>
+      <div class="f3 fw7 lh-title" data-key="posts[].title"><a href=''>The next CEO of Stack Overflow</a></div>
+      <summary class="mt3" data-key="posts[].summary">We’re looking for a new CEO for Stack Overflow. I’m stepping out of the day-to-day and up to the role of Chairman of the Board.</summary>
+      <div class="mt2 mb4"><a href="" data-key="posts[].link">read more</a></div>
       <hr>
     </article>
     {{ end }}
   </main>
   {{ template "footer" . }}
-  {{ .__js__ }}
+  {{ .Env.JS }}
 </body>
 </html>

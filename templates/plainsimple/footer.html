@@ -1,6 +1,12 @@
 {{ define "footer" }}
 <footer class="flex justify-center mt5 pb3">
-  {{ $name := data_value .__pageid__ "name" "Robert Table" }}
-  <div>Copyright © 2020 <span data-key="name">{{ $name }}</span>. All rights reserved.</div>
+  {{ $author := getValueWithID .Env "author" "bokwoon95/plainsimple:globals" }}
+  <div>
+    Copyright © 2020
+    <span data-id="bokwoon95/plainsimple:globals" data-key="author">
+      {{ if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end }}
+    </span>
+    . All rights reserved.
+  </div>
 </footer>
 {{ end }}

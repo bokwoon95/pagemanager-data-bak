@@ -16,17 +16,31 @@ func main() {
 	if err != nil {
 		log.Fatalln(erro.Sdump(err))
 	}
+	render, err := renderly2.New(
+		os.DirFS(renderly2.AbsDir(".")),
+		renderly2.GlobalHTMLEnvFuncs(pagemanager.EnvFunc),
+		renderly2.GlobalJSEnvFuncs(pagemanager.EnvFunc),
+		renderly2.TemplateFuncs(pm.FuncMap()),
+	)
+	if err != nil {
+		log.Fatalln(erro.Sdump(err))
+	}
 	mux := chi.NewRouter()
 	mux.Use(pm.Middleware)
 	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hello world"))
 	})
-	render, err := renderly2.New(os.DirFS(renderly2.AbsDir(".")))
-	if err != nil {
-		log.Fatalln(erro.Sdump(err))
-	}
 	mux.Get("/test", func(w http.ResponseWriter, r *http.Request) {
-		// render.
+		err := render.Page(w, r, "templates/plainsimple/post-index.html", []string{
+			"pagemanager/tachyons.min.css",
+			"templates/plainsimple/header.html",
+			"templates/plainsimple/footer.html",
+			"templates/plainsimple/style.css",
+			"templates/plainsimple/post-index.js",
+		}, nil)
+		if err != nil {
+			http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
+		}
 	})
 	pm.ListenAndServe(":80", mux)
 }
