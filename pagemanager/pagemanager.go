@@ -36,7 +36,6 @@ type PageManager struct {
 	routecache *ristretto.Cache // TODO: make this a Cache interface instead
 	restart    chan struct{}
 	fsys       fs.FS
-	fsPrefix   string
 	fsHandler  http.Handler
 	notfound   http.Handler
 	render     *renderly.Renderly
@@ -59,7 +58,6 @@ func New() (*PageManager, error) {
 func (pm *PageManager) Setup() error {
 	pm.routemap = make(map[string]Route)
 	pm.restart = make(chan struct{}, 1)
-	pm.fsPrefix = "/static/"
 	pm.notfound = http.NotFoundHandler()
 	datafolder, err := LocateDataFolder()
 	if err != nil {
@@ -108,9 +106,10 @@ func (pm *PageManager) Setup() error {
 		return erro.Wrap(err)
 	}
 	// render
-	pm.render, err = renderly.New(pm.fsys,
+	pm.render, err = renderly.New(
+		pm.fsys,
 		renderly.AltFS("builtin", builtin),
-		// renderly.Plugins(pm.RenderlyPlugin()),
+		renderly.Plugins(pm.RenderlyPlugin()),
 	)
 	if err != nil {
 		return erro.Wrap(err)
@@ -177,17 +176,8 @@ func (pm *PageManager) getroute(path string) (Route, error) {
 }
 
 func (pm *PageManager) Middleware(next http.Handler) http.Handler {
-	mux := pm.newmux(next)
+	mux := pm.render.FileServerMiddleware()(pm.newmux(next))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if pm.fsPrefix != "" && strings.HasPrefix(r.URL.Path, pm.fsPrefix) {
-			filepath := strings.TrimPrefix(r.URL.Path, pm.fsPrefix)
-			r2 := &http.Request{}
-			*r2 = *r
-			r2.URL = &url.URL{}
-			r2.URL.Path = filepath
-			pm.fsHandler.ServeHTTP(w, r2)
-			return
-		}
 		route, err := pm.getroute(r.URL.Path)
 		if err != nil {
 			http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
@@ -238,21 +228,24 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 				allvalues := strings.Join(values, " ")
 				_ = renderly.AppendCSP(w, policy, allvalues)
 			}
-			var files []string
+			var mainfile = metadata.Name
+			var includefiles []string
 			if metadata.MainTemplate != "" {
-				files = append(files, metadata.MainTemplate)
+				mainfile = metadata.MainTemplate
+				includefiles = append(includefiles, metadata.Name)
 			}
-			files = append(files, metadata.Name)
-			files = append(files, metadata.Include...)
+			includefiles = append(includefiles, metadata.Include...)
+			// files = append(files, metadata.Name)
+			// files = append(files, metadata.Include...)
 			err = r.ParseForm()
 			if err != nil {
 				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
 				return
 			}
 			if editTemplate {
-				files = append(files, "~builtin/editor.js", "~builtin/editor.css")
+				includefiles = append(includefiles, "builtin::editor.js", "builtin::editor.css")
 			}
-			err = pm.render.Page(w, r, nil, files...)
+			err = pm.render.Page(w, r, mainfile, includefiles, nil)
 			if err != nil {
 				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
 				return
@@ -635,45 +628,31 @@ func (pm *PageManager) getRowsWithID(env map[string]interface{}, key, id string)
 	return nil, nil
 }
 
-// func (pm *PageManager) htmlize_map(data map[string]interface{}) {
-// 	for key, value := range data {
-// 		switch value := value.(type) {
-// 		case map[string]interface{}:
-// 			pm.htmlize_map(value)
-// 		case string:
-// 			data[key] = template.HTML(pm.htmlPolicy.Sanitize(value))
-// 		default:
-// 			return
-// 		}
-// 	}
-// }
-
-// func (pm *PageManager) RenderlyPlugin() renderly.Plugin {
-// 	plugin := renderly.Plugin{}
-// 	// CSS
-// 	b, err := fs.ReadFile(builtin, "tachyons.min.css")
-// 	if err != nil {
-// 		plugin.Err = err
-// 		return plugin
-// 	}
-// 	tachyons := &renderly.Asset{Data: string(b)}
-// 	plugin.GlobalCSS = append(plugin.GlobalCSS, tachyons)
-// 	// FuncMap
-// 	plugin.FuncMap = make(map[string]interface{})
-// 	for _, funcmap := range []map[string]interface{}{renderly.FuncMap(), pm.FuncMap()} {
-// 		for name, fn := range funcmap {
-// 			plugin.FuncMap[name] = fn
-// 		}
-// 	}
-// 	// Prehooks
-// 	addPageID := func(w io.Writer, r *http.Request, data interface{}) (interface{}, error) {
-// 		mapdata, ok := data.(map[string]interface{})
-// 		if !ok {
-// 			return data, nil
-// 		}
-// 		mapdata["__pageid__"] = r.URL.Path
-// 		return mapdata, nil
-// 	}
-// 	plugin.GlobalPrehooks = append(plugin.GlobalPrehooks, addPageID)
-// 	return plugin
-// }
+func (pm *PageManager) RenderlyPlugin() renderly.Plugin {
+	plugin := renderly.Plugin{
+		Assets:   make(map[string]renderly.Asset),
+		EnvFuncs: make(map[string]renderly.EnvFunc),
+	}
+	// CSS
+	for _, name := range []string{"tachyons.min.css"} {
+		b, err := fs.ReadFile(builtin, name)
+		if err != nil {
+			plugin.InitErr = err
+			return plugin
+		}
+		plugin.Assets[name] = renderly.Asset{Data: string(b)}
+	}
+	// EnvFuncs
+	plugin.EnvFuncs["addGlobalVars"] = func(w io.Writer, r *http.Request, env map[string]interface{}) error {
+		env["PageID"] = r.URL.Path
+		env["EditMode"] = false
+		return nil
+	}
+	// FuncMap
+	plugin.FuncMap = pm.FuncMap()
+	// Global Assets/EnvFuncs
+	plugin.GlobalCSS = append(plugin.GlobalCSS, "tachyons.min.css")
+	plugin.GlobalHTMLEnvFunc = append(plugin.GlobalHTMLEnvFunc, "addGlobalVars")
+	plugin.GlobalJSEnvFunc = append(plugin.GlobalJSEnvFunc, "addGlobalVars")
+	return plugin
+}

@@ -5,7 +5,7 @@ html {
 .hero-banner {
   width: 100vw;
   height: 400px;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url(hero.jpg);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url(/static/templates/plainsimple/hero.jpg);
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: local;

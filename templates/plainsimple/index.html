@@ -2,38 +2,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  {{ .ENV.CSS }}
+  {{ .Env.CSS }}
   <title>Post Index</title>
 </head>
 <body>
   <nav class="absolute w-100">
     <ul class="flex flex-wrap justify-end list pa0">
-      {{ if .ENV.editMode }}
+      {{ if .Env.EditMode }}
       <li><button class="mh2 pointer">add item</button></li>
       {{ end }}
-      {{ range $i, $row := get_rows .ENV "nav" }}
-      <li class="nav-link"><a href="{{ $row.link }}" data-key="nav[]">{{ $row.title }}</a></li>
+      {{ range $i, $row := getRows .Env "nav" }}
+      <li class="nav-link"><a data-key-href="nav[].link" href="{{ $row.link }}" data-key="nav[].title">{{ $row.title }}</a></li>
       {{ else }}
-      <li class="nav-link"><a href="/" data-key="nav[]">Home</a></li>
-      <li class="nav-link"><a href="/about-me" data-key="nav[]">About Me</a></li>
-      <li class="nav-link"><a href="/contact" data-key="nav[]">Contact</a></li>
+      <li class="nav-link"><a data-key-href="nav[].link" href="/" data-key="nav[].title">Home</a></li>
+      <li class="nav-link"><a data-key-href="nav[].link" href="/about-me" data-key="nav[].title">About Me</a></li>
+      <li class="nav-link"><a data-key-href="nav[].link" href="/contact" data-key="nav[].title">Contact</a></li>
       {{ end }}
     </ul>
   </nav>
   <header class="hero-banner flex justify-center items-center">
     <div class="tc white">
-      {{ $title := get_value_with_id .ENV "bokwoon95/plainsimple:globals" "title" }}
+      {{ $title := getValueWithID .Env "title" "bokwoon95/plainsimple:globals" }}
       <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:globals" data-key="title">
         {{ if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end }}
       </h1>
-      {{ $subtitle := get_value_with_id .ENV "bokwoon95/plainsimple:globals" "subtitle" }}
+      {{ $subtitle := getValueWithID .Env "subtitle" "bokwoon95/plainsimple:globals" }}
       <h2 class="f3 text-border tl" data-id="bokwoon95/plainsimple:globals" data-key="subtitle">
         {{ if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end }}
       </h2>
     </div>
   </header>
   <main class="posts-list pt4-l pb2-l ph7-l">
-    {{ range $i, $post := get_rows .ENV "posts" }}
+    {{ range $i, $post := getRows .Env "posts" }}
     <article>
       <div class="f6 mt2 gray" data-key="posts[].date">{{ $post.date | safeHTML }}</div>
       <div class="f3 fw7 lh-title" data-key="posts[].title">{{ $post.title | safeHTML }}</div>
@@ -73,7 +73,7 @@
     {{ end }}
   </main>
   <footer class="flex justify-center mt5 pb3">
-    {{ $author := get_value_with_id .ENV "bokwoon95/plainsimple:globals" "author" }}
+    {{ $author := getValueWithID .Env "author" "bokwoon95/plainsimple:globals" }}
     <div>Copyright © 2020
       <span data-id="bokwoon95/plainsimple:globals" data-key="author">
         {{ if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end }}
@@ -81,6 +81,6 @@
       . All rights reserved.
     </div>
   </footer>
-  {{ .ENV.JS }}
+  {{ .Env.JS }}
 </body>
 </html>

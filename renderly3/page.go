@@ -1,4 +1,4 @@
-package renderly
+package renderly3
 
 import (
 	"crypto/rand"

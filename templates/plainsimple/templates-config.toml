@@ -20,3 +20,8 @@ include = [
     "templates/plainsimple/style.css",
     "templates/plainsimple/post.js",
 ]
+
+["templates/plainsimple/index.html"]
+include = [
+    "templates/plainsimple/style.css",
+]
