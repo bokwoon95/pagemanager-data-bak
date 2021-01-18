@@ -33,10 +33,10 @@ type Asset struct {
 type EnvFunc func(w io.Writer, r *http.Request, env map[string]interface{}) error
 
 type Plugin struct {
-	pluginID          int
+	pluginID          string
 	InitErr           error
 	FuncMap           map[string]interface{}
-	Assets            map[string]Asset
+	Fsys              fs.FS
 	EnvFuncs          map[string]EnvFunc
 	Components        []Component
 	GlobalCSS         []string
@@ -46,7 +46,7 @@ type Plugin struct {
 }
 
 type Component struct {
-	pluginID     int
+	pluginID     string
 	HTML         *template.Template
 	CSS          []string
 	JS           []string
@@ -54,21 +54,15 @@ type Component struct {
 	JSEnvFuncs   []string
 }
 
-type mapkey struct {
-	pluginID int
-	name     string
-}
-
 type Page struct {
 	html         *template.Template
-	css          []mapkey
-	js           []mapkey
-	htmlenvfuncs []mapkey
-	jsenvfuncs   []mapkey
+	css          []string
+	js           []string
+	htmlenvfuncs []string
+	jsenvfuncs   []string
 	// copied from *Renderly struct
 	bufpool  *bpool.BufferPool
-	assets   map[mapkey]Asset
-	envfuncs map[mapkey]EnvFunc
+	envfuncs map[string]EnvFunc
 	fsys     MuxFS
 }
 
@@ -80,15 +74,13 @@ type Renderly struct {
 	opts       []string
 	fsysprefix string
 	// plugins
-	pluginCount        int
 	basetemplate       *template.Template
 	components         map[string]Component
-	assets             map[mapkey]Asset
-	envfuncs           map[mapkey]EnvFunc
-	globalcss          []mapkey
-	globaljs           []mapkey
-	globalhtmlenvfuncs []mapkey
-	globaljsenvfuncs   []mapkey
+	envfuncs           map[string]EnvFunc
+	globalcss          []string
+	globaljs           []string
+	globalhtmlenvfuncs []string
+	globaljsenvfuncs   []string
 	errorhandler       func(http.ResponseWriter, *http.Request, error)
 	fileserver         http.Handler
 }
@@ -98,6 +90,8 @@ type MuxFS struct {
 	AltFS     map[string]fs.FS
 	// TODO: switch to double colon :: delimiter
 }
+
+func (ry *Renderly) Fsys() fs.FS { return ry.fsys }
 
 type Option func(*Renderly) error
 
@@ -110,8 +104,7 @@ func New(fsys fs.FS, opts ...Option) (*Renderly, error) {
 		funcmap:    make(map[string]interface{}),
 		// plugin
 		basetemplate: template.New(""),
-		assets:       make(map[mapkey]Asset),
-		envfuncs:     make(map[mapkey]EnvFunc),
+		envfuncs:     make(map[string]EnvFunc),
 	}
 	ry.fileserver = http.FileServer(http.FS(ry.fsys))
 	var err error
@@ -125,8 +118,8 @@ func New(fsys fs.FS, opts ...Option) (*Renderly, error) {
 	return ry, nil
 }
 
-func dedupkeys(keys []mapkey) []mapkey {
-	set := make(map[mapkey]struct{})
+func dedupkeys(keys []string) []string {
+	set := make(map[string]struct{})
 	n := 0
 	for _, key := range keys {
 		if _, ok := set[key]; ok {
@@ -352,17 +345,14 @@ func TemplateOpts(option ...string) Option {
 
 func GlobalCSS(fsys fs.FS, filenames ...string) Option {
 	return func(ry *Renderly) error {
+		if fsys == nil {
+			ry.globalcss = append(ry.globalcss, filenames...)
+			return nil
+		}
+		pluginName := uuid.New().String()
+		ry.fsys.AltFS[pluginName] = fsys
 		for _, filename := range filenames {
-			k := mapkey{name: filename}
-			b, err := fs.ReadFile(fsys, filename)
-			if err != nil {
-				return erro.Wrap(err)
-			}
-			ry.globalcss = append(ry.globalcss, k)
-			ry.assets[k] = Asset{
-				Data: string(b),
-				hash: sha256.Sum256(b),
-			}
+			ry.globalcss = append(ry.globalcss, pluginName+"::"+filename)
 		}
 		return nil
 	}
@@ -370,17 +360,14 @@ func GlobalCSS(fsys fs.FS, filenames ...string) Option {
 
 func GlobalJS(fsys fs.FS, filenames ...string) Option {
 	return func(ry *Renderly) error {
+		if fsys == nil {
+			ry.globaljs = append(ry.globaljs, filenames...)
+			return nil
+		}
+		pluginName := uuid.New().String()
+		ry.fsys.AltFS[pluginName] = fsys
 		for _, filename := range filenames {
-			k := mapkey{name: filename}
-			b, err := fs.ReadFile(fsys, filename)
-			if err != nil {
-				return erro.Wrap(err)
-			}
-			ry.globaljs = append(ry.globaljs, k)
-			ry.assets[k] = Asset{
-				Data: string(b),
-				hash: sha256.Sum256(b),
-			}
+			ry.globaljs = append(ry.globaljs, pluginName+"::"+filename)
 		}
 		return nil
 	}
@@ -413,9 +400,8 @@ func GlobalHTMLEnvFuncs(fns ...EnvFunc) Option {
 	return func(ry *Renderly) error {
 		for _, fn := range fns {
 			name := uuid.New().String()
-			k := mapkey{name: name}
-			ry.globalhtmlenvfuncs = append(ry.globalhtmlenvfuncs, k)
-			ry.envfuncs[k] = fn
+			ry.envfuncs[name] = fn
+			ry.globalhtmlenvfuncs = append(ry.globalhtmlenvfuncs, name)
 		}
 		return nil
 	}
@@ -425,9 +411,8 @@ func GlobalJSEnvFuncs(fns ...EnvFunc) Option {
 	return func(ry *Renderly) error {
 		for _, fn := range fns {
 			name := uuid.New().String()
-			k := mapkey{name: name}
-			ry.globaljsenvfuncs = append(ry.globaljsenvfuncs, k)
-			ry.envfuncs[k] = fn
+			ry.envfuncs[name] = fn
+			ry.globaljsenvfuncs = append(ry.globaljsenvfuncs, name)
 		}
 		return nil
 	}
@@ -451,47 +436,40 @@ func Plugins(plugins ...Plugin) Option {
 			ry.basetemplate = template.New("")
 		}
 		for _, plugin := range plugins {
-			ry.mu.Lock()
-			ry.pluginCount++
-			pluginID := ry.pluginCount
-			ry.mu.Unlock()
 			if plugin.InitErr != nil {
 				return erro.Wrap(plugin.InitErr)
 			}
+			pluginID := uuid.New().String()
 			for _, component := range plugin.Components {
 				if component.HTML == nil {
 					return erro.Wrap(fmt.Errorf("component with nil template"))
 				}
 				name := component.HTML.Name()
+				component.pluginID = pluginID
 				ry.components[name] = component
-				err := addParseTree(ry.basetemplate, component.HTML, name) // TODO: actually I don't want to put all component templates into the basetemplate
-				if err != nil {
-					return erro.Wrap(err)
-				}
+				// err := addParseTree(ry.basetemplate, component.HTML, name) // TODO: actually I don't want to put all component templates into the basetemplate
+				// if err != nil {
+				// 	return erro.Wrap(err)
+				// }
 			}
-			for name, asset := range plugin.Assets {
-				k := mapkey{pluginID: pluginID, name: name}
-				asset.hash = sha256.Sum256([]byte(asset.Data))
-				ry.assets[k] = asset
-			}
+			ry.fsys.AltFS[pluginID] = plugin.Fsys
 			for name, fn := range plugin.EnvFuncs {
-				k := mapkey{pluginID: pluginID, name: name}
-				ry.envfuncs[k] = fn
+				ry.envfuncs[pluginID+"::"+name] = fn
 			}
 			for name, fn := range plugin.FuncMap {
 				ry.funcmap[name] = fn
 			}
 			for _, name := range plugin.GlobalCSS {
-				ry.globalcss = append(ry.globalcss, mapkey{pluginID: pluginID, name: name})
+				ry.globalcss = append(ry.globalcss, pluginID+"::"+name)
 			}
 			for _, name := range plugin.GlobalJS {
-				ry.globaljs = append(ry.globaljs, mapkey{pluginID: pluginID, name: name})
+				ry.globaljs = append(ry.globaljs, pluginID+"::"+name)
 			}
 			for _, name := range plugin.GlobalHTMLEnvFunc {
-				ry.globalhtmlenvfuncs = append(ry.globalhtmlenvfuncs, mapkey{pluginID: pluginID, name: name})
+				ry.globalhtmlenvfuncs = append(ry.globalhtmlenvfuncs, pluginID+"::"+name)
 			}
 			for _, name := range plugin.GlobalJSEnvFunc {
-				ry.globaljsenvfuncs = append(ry.globaljsenvfuncs, mapkey{pluginID: pluginID, name: name})
+				ry.globaljsenvfuncs = append(ry.globaljsenvfuncs, pluginID+"::"+name)
 			}
 		}
 		return nil
@@ -523,36 +501,35 @@ func AppendCSP(w http.ResponseWriter, policy, value string) error {
 func (page Page) CSS(w io.Writer, inline bool) (template.HTML, string, error) {
 	styles := &strings.Builder{}
 	styleHashes := &strings.Builder{}
-	for i, key := range page.css {
-		if i > 0 {
-			styles.WriteString("\n")
-			styleHashes.WriteString(" ")
-		}
-		var asset Asset
-		fmt.Println(key)
-		if key.pluginID == 0 {
-			b, err := page.fsys.ReadFile(key.name)
-			if err != nil {
-				return "", "", erro.Wrap(err)
-			}
-			asset = Asset{
-				Data: string(b),
-				hash: sha256.Sum256(b),
-			}
-		} else {
-			var ok bool
-			asset, ok = page.assets[key]
-			if !ok {
-				return "", "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
-			}
-		}
-		styles.WriteString("<style>")
-		styles.WriteString(asset.Data)
-		styles.WriteString("</style>")
-		styleHashes.WriteString("'sha256-")
-		styleHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
-		styleHashes.WriteString("'")
-	}
+	// for i, key := range page.css {
+	// 	if i > 0 {
+	// 		styles.WriteString("\n")
+	// 		styleHashes.WriteString(" ")
+	// 	}
+	// 	var asset Asset
+	// 	if key.pluginID == "" {
+	// 		b, err := page.fsys.ReadFile(key.name)
+	// 		if err != nil {
+	// 			return "", "", erro.Wrap(err)
+	// 		}
+	// 		asset = Asset{
+	// 			Data: string(b),
+	// 			hash: sha256.Sum256(b),
+	// 		}
+	// 	} else {
+	// 		var ok bool
+	// 		asset, ok = page.assets[key]
+	// 		if !ok {
+	// 			return "", "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
+	// 		}
+	// 	}
+	// 	styles.WriteString("<style>")
+	// 	styles.WriteString(asset.Data)
+	// 	styles.WriteString("</style>")
+	// 	styleHashes.WriteString("'sha256-")
+	// 	styleHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
+	// 	styleHashes.WriteString("'")
+	// }
 	if styleHashes.Len() > 0 {
 		if w, ok := w.(http.ResponseWriter); ok {
 			_ = AppendCSP(w, "style-src", "'self'") // NOTE: this may need to be removed
@@ -584,35 +561,35 @@ func (page Page) JS(w io.Writer, jsenv map[string]interface{}, inline bool) (tem
 	scriptHashes.WriteString(" 'sha256-")
 	scriptHashes.WriteString(base64.StdEncoding.EncodeToString(envhash[0:]))
 	scriptHashes.WriteString("' ")
-	for i, key := range page.js {
-		if i > 0 {
-			scripts.WriteString("\n")
-			scriptHashes.WriteString(" ")
-		}
-		var asset Asset
-		if key.pluginID == 0 {
-			b, err := page.fsys.ReadFile(key.name)
-			if err != nil {
-				return "", "", erro.Wrap(err)
-			}
-			asset = Asset{
-				Data: string(b),
-				hash: sha256.Sum256(b),
-			}
-		} else {
-			var ok bool
-			asset, ok = page.assets[key]
-			if !ok {
-				return "", "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
-			}
-		}
-		scripts.WriteString("<script>")
-		scripts.WriteString(asset.Data)
-		scripts.WriteString("</script>")
-		scriptHashes.WriteString(" 'sha256-")
-		scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
-		scriptHashes.WriteString("' ")
-	}
+	// for i, key := range page.js {
+	// 	if i > 0 {
+	// 		scripts.WriteString("\n")
+	// 		scriptHashes.WriteString(" ")
+	// 	}
+	// 	var asset Asset
+	// 	if key.pluginID == "" {
+	// 		b, err := page.fsys.ReadFile(key.name)
+	// 		if err != nil {
+	// 			return "", "", erro.Wrap(err)
+	// 		}
+	// 		asset = Asset{
+	// 			Data: string(b),
+	// 			hash: sha256.Sum256(b),
+	// 		}
+	// 	} else {
+	// 		var ok bool
+	// 		asset, ok = page.assets[key]
+	// 		if !ok {
+	// 			return "", "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
+	// 		}
+	// 	}
+	// 	scripts.WriteString("<script>")
+	// 	scripts.WriteString(asset.Data)
+	// 	scripts.WriteString("</script>")
+	// 	scriptHashes.WriteString(" 'sha256-")
+	// 	scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
+	// 	scriptHashes.WriteString("' ")
+	// }
 	if scriptHashes.Len() > 0 {
 		if w, ok := w.(http.ResponseWriter); ok {
 			_ = AppendCSP(w, "script-src", "'self'") // NOTE: this may need to be removed
@@ -672,7 +649,6 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	// Else construct the page from scratch
 	page := Page{
 		bufpool:  ry.bufpool,
-		assets:   ry.assets,
 		envfuncs: ry.envfuncs,
 		fsys:     ry.fsys,
 	}
@@ -732,37 +708,25 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 			return page, erro.Wrap(err)
 		}
 		for _, name := range component.CSS {
-			page.css = append(page.css, mapkey{
-				pluginID: component.pluginID,
-				name:     name,
-			})
+			page.css = append(page.css, component.pluginID+"::"+name)
 		}
 		for _, name := range component.JS {
-			page.js = append(page.js, mapkey{
-				pluginID: component.pluginID,
-				name:     name,
-			})
+			page.js = append(page.js, component.pluginID+"::"+name)
 		}
 		for _, name := range component.HTMLEnvFuncs {
-			page.htmlenvfuncs = append(page.htmlenvfuncs, mapkey{
-				pluginID: component.pluginID,
-				name:     name,
-			})
+			page.htmlenvfuncs = append(page.htmlenvfuncs, component.pluginID+"::"+name)
 		}
 		for _, name := range component.JSEnvFuncs {
-			page.jsenvfuncs = append(page.jsenvfuncs, mapkey{
-				pluginID: component.pluginID,
-				name:     name,
-			})
+			page.jsenvfuncs = append(page.jsenvfuncs, component.pluginID+"::"+name)
 		}
 	}
 	// Add the user-specified CSS files to the page
-	for _, filename := range CSSFiles {
-		page.css = append(page.css, mapkey{name: filename})
+	for _, name := range CSSFiles {
+		page.css = append(page.css, name)
 	}
 	// Add the user-specified JS files to the page
-	for _, filename := range JSFiles {
-		page.js = append(page.js, mapkey{name: filename})
+	for _, name := range JSFiles {
+		page.js = append(page.js, name)
 	}
 	page.css = dedupkeys(page.css)
 	page.js = dedupkeys(page.js)
