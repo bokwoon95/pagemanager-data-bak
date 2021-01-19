@@ -29,6 +29,13 @@ import (
 
 var builtin fs.FS
 
+func init() {
+	flag.Parse()
+	if builtin == nil {
+		builtin = os.DirFS(renderly.AbsDir("."))
+	}
+}
+
 type PageManager struct {
 	dbdriver   string
 	db         *sql.DB
@@ -109,7 +116,10 @@ func (pm *PageManager) Setup() error {
 	pm.render, err = renderly.New(
 		pm.fsys,
 		renderly.AltFS("builtin", builtin),
-		renderly.Plugins(pm.RenderlyPlugin()),
+		renderly.TemplateFuncs(pm.FuncMap()),
+		renderly.GlobalCSS(nil, "builtin::tachyons.min.css"),
+		renderly.GlobalHTMLEnvFuncs(EnvFunc),
+		renderly.GlobalJSEnvFuncs(EnvFunc),
 	)
 	if err != nil {
 		return erro.Wrap(err)
@@ -381,13 +391,6 @@ type Plugin interface {
 	URLs() []string
 }
 
-func init() {
-	flag.Parse()
-	if builtin == nil {
-		builtin = os.DirFS(renderly.AbsDir("."))
-	}
-}
-
 var datafolder = flag.String("pm-datafolder", "", "")
 
 func LocateDataFolder() (string, error) {
@@ -626,36 +629,4 @@ func (pm *PageManager) getRowsWithID(env map[string]interface{}, key, id string)
 		return array, nil
 	}
 	return nil, nil
-}
-
-func (pm *PageManager) RenderlyPlugin() renderly.Plugin {
-	plugin := renderly.Plugin{
-		EnvFuncs: make(map[string]renderly.EnvFunc),
-		Fsys:     pm.render.Fsys(), // feels kind of fucky having to share renderly fsys with renderly again
-		// TODO: perhaps renderly should just take in one fs.FS, and the implementation MuxFS should be handled externally.
-		// i.e. if the user needs multiple FSes, he will pass in his own MuxFS.
-		// TODO: how the fucc am I going to give it an FS name (builtin) and let renderly inject its own UUID plugin name as well? One or the other?
-	}
-	// CSS
-	for _, name := range []string{"tachyons.min.css"} {
-		b, err := fs.ReadFile(builtin, name)
-		if err != nil {
-			plugin.InitErr = err
-			return plugin
-		}
-		plugin.Assets[name] = renderly.Asset{Data: string(b)}
-	}
-	// EnvFuncs
-	plugin.EnvFuncs["addGlobalVars"] = func(w io.Writer, r *http.Request, env map[string]interface{}) error {
-		env["PageID"] = r.URL.Path
-		env["EditMode"] = false
-		return nil
-	}
-	// FuncMap
-	plugin.FuncMap = pm.FuncMap()
-	// Global Assets/EnvFuncs
-	plugin.GlobalCSS = append(plugin.GlobalCSS, "builtin::tachyons.min.css")
-	plugin.GlobalHTMLEnvFunc = append(plugin.GlobalHTMLEnvFunc, "addGlobalVars")
-	plugin.GlobalJSEnvFunc = append(plugin.GlobalJSEnvFunc, "addGlobalVars")
-	return plugin
 }

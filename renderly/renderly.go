@@ -61,15 +61,16 @@ type Page struct {
 	htmlenvfuncs []string
 	jsenvfuncs   []string
 	// copied from *Renderly struct
-	bufpool  *bpool.BufferPool
-	envfuncs map[string]EnvFunc
-	fsys     MuxFS
+	bufpool    *bpool.BufferPool
+	envfuncs   map[string]EnvFunc
+	fsys       muxFS
+	fsysprefix string
 }
 
 type Renderly struct {
 	mu         *sync.RWMutex
 	bufpool    *bpool.BufferPool
-	fsys       MuxFS
+	fsys       muxFS
 	funcmap    map[string]interface{}
 	opts       []string
 	fsysprefix string
@@ -85,10 +86,9 @@ type Renderly struct {
 	fileserver         http.Handler
 }
 
-type MuxFS struct {
-	DefaultFS fs.FS
-	AltFS     map[string]fs.FS
-	// TODO: switch to double colon :: delimiter
+type muxFS struct {
+	defaultFS fs.FS
+	altFS     map[string]fs.FS
 }
 
 func (ry *Renderly) Fsys() fs.FS { return ry.fsys }
@@ -98,7 +98,7 @@ type Option func(*Renderly) error
 func New(fsys fs.FS, opts ...Option) (*Renderly, error) {
 	ry := &Renderly{
 		mu:         &sync.RWMutex{},
-		fsys:       MuxFS{DefaultFS: fsys, AltFS: make(map[string]fs.FS)},
+		fsys:       muxFS{defaultFS: fsys, altFS: make(map[string]fs.FS)},
 		fsysprefix: "static",
 		bufpool:    bpool.NewBufferPool(64),
 		funcmap:    make(map[string]interface{}),
@@ -153,11 +153,11 @@ func categorize(names []string) (html, css, js []string) {
 }
 
 // Open implements fs.FS, which can be converted to a http.Filesystem using http.FS
-func (muxfs MuxFS) Open(name string) (fs.File, error) {
-	var fsys = muxfs.DefaultFS
+func (muxfs muxFS) Open(name string) (fs.File, error) {
+	var fsys = muxfs.defaultFS
 	if i := strings.Index(name, "::"); i > 0 {
 		fsysName := name[:i]
-		altfs := muxfs.AltFS[fsysName]
+		altfs := muxfs.altFS[fsysName]
 		if altfs != nil {
 			fsys = altfs
 		}
@@ -166,7 +166,7 @@ func (muxfs MuxFS) Open(name string) (fs.File, error) {
 	return fsys.Open(name)
 }
 
-func (muxfs MuxFS) ReadFile(filename string) ([]byte, error) {
+func (muxfs muxFS) ReadFile(filename string) ([]byte, error) {
 	// ReadFile copied from function of the same name in
 	// $GOROOT/src/io/fs/readfile.go, with minor adjustments.
 	//
@@ -350,7 +350,7 @@ func GlobalCSS(fsys fs.FS, filenames ...string) Option {
 			return nil
 		}
 		pluginName := uuid.New().String()
-		ry.fsys.AltFS[pluginName] = fsys
+		ry.fsys.altFS[pluginName] = fsys
 		for _, filename := range filenames {
 			ry.globalcss = append(ry.globalcss, pluginName+"::"+filename)
 		}
@@ -365,7 +365,7 @@ func GlobalJS(fsys fs.FS, filenames ...string) Option {
 			return nil
 		}
 		pluginName := uuid.New().String()
-		ry.fsys.AltFS[pluginName] = fsys
+		ry.fsys.altFS[pluginName] = fsys
 		for _, filename := range filenames {
 			ry.globaljs = append(ry.globaljs, pluginName+"::"+filename)
 		}
@@ -420,7 +420,7 @@ func GlobalJSEnvFuncs(fns ...EnvFunc) Option {
 
 func AltFS(name string, fsys fs.FS) Option {
 	return func(ry *Renderly) error {
-		ry.fsys.AltFS[name] = fsys
+		ry.fsys.altFS[name] = fsys
 		return nil
 	}
 }
@@ -452,7 +452,7 @@ func Plugins(plugins ...Plugin) Option {
 				// 	return erro.Wrap(err)
 				// }
 			}
-			ry.fsys.AltFS[pluginID] = plugin.Fsys
+			ry.fsys.altFS[pluginID] = plugin.Fsys
 			for name, fn := range plugin.EnvFuncs {
 				ry.envfuncs[pluginID+"::"+name] = fn
 			}
@@ -478,6 +478,9 @@ func Plugins(plugins ...Plugin) Option {
 
 func AppendCSP(w http.ResponseWriter, policy, value string) error {
 	const key = "Content-Security-Policy"
+	if value == "" {
+		return nil
+	}
 	CSP := w.Header().Get(key)
 	if CSP == "" {
 		// w.Header().Set(key, policy+" "+value)
@@ -498,51 +501,45 @@ func AppendCSP(w http.ResponseWriter, policy, value string) error {
 	return nil
 }
 
-func (page Page) CSS(w io.Writer, inline bool) (template.HTML, string, error) {
-	styles := &strings.Builder{}
-	styleHashes := &strings.Builder{}
-	// for i, key := range page.css {
-	// 	if i > 0 {
-	// 		styles.WriteString("\n")
-	// 		styleHashes.WriteString(" ")
-	// 	}
-	// 	var asset Asset
-	// 	if key.pluginID == "" {
-	// 		b, err := page.fsys.ReadFile(key.name)
-	// 		if err != nil {
-	// 			return "", "", erro.Wrap(err)
-	// 		}
-	// 		asset = Asset{
-	// 			Data: string(b),
-	// 			hash: sha256.Sum256(b),
-	// 		}
-	// 	} else {
-	// 		var ok bool
-	// 		asset, ok = page.assets[key]
-	// 		if !ok {
-	// 			return "", "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
-	// 		}
-	// 	}
-	// 	styles.WriteString("<style>")
-	// 	styles.WriteString(asset.Data)
-	// 	styles.WriteString("</style>")
-	// 	styleHashes.WriteString("'sha256-")
-	// 	styleHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
-	// 	styleHashes.WriteString("'")
-	// }
-	if styleHashes.Len() > 0 {
-		if w, ok := w.(http.ResponseWriter); ok {
-			_ = AppendCSP(w, "style-src", "'self'") // NOTE: this may need to be removed
-			_ = AppendCSP(w, "style-src", styleHashes.String())
+func (page Page) CSS(inline bool) (styles template.HTML, CSP string, err error) {
+	stylesbuf := &strings.Builder{}
+	CSPbuf := &strings.Builder{}
+	if !inline {
+		for i, name := range page.css {
+			if i > 0 {
+				stylesbuf.WriteString("\n")
+			}
+			stylesbuf.WriteString(`<link rel="stylesheet" href="/`)
+			stylesbuf.WriteString(strings.Trim(page.fsysprefix, "/"))
+			stylesbuf.WriteString("/")
+			stylesbuf.WriteString(name)
+			stylesbuf.WriteString(`">`)
+		}
+	} else {
+		for i, name := range page.css {
+			if i > 0 {
+				stylesbuf.WriteString("\n")
+				CSPbuf.WriteString(" ")
+			}
+			b, err := page.fsys.ReadFile(name)
+			if err != nil {
+				return template.HTML(stylesbuf.String()), strings.TrimSpace(CSPbuf.String()), erro.Wrap(err)
+			}
+			stylesbuf.WriteString("<style>")
+			_, _ = stylesbuf.Write(b)
+			stylesbuf.WriteString("</style>")
+			hash := sha256.Sum256(b)
+			CSPbuf.WriteString("'sha256-")
+			CSPbuf.WriteString(base64.StdEncoding.EncodeToString(hash[0:]))
+			CSPbuf.WriteString("'")
 		}
 	}
-	return template.HTML(styles.String()), styleHashes.String(), nil
+	return template.HTML(stylesbuf.String()), strings.TrimSpace(CSPbuf.String()), nil
 }
 
-func (page Page) JS(w io.Writer, jsenv map[string]interface{}, inline bool) (template.HTML, string, error) {
-	// Generate Content-Security-Policy script-src
-	scripts := &strings.Builder{}
-	scriptHashes := &strings.Builder{}
+func (page Page) JS(jsenv map[string]interface{}, inline bool) (scripts template.HTML, CSP string, err error) {
+	scriptsbuf := &strings.Builder{}
+	CSPbuf := &strings.Builder{}
 	b, err := json.Marshal(jsenv)
 	if err != nil {
 		return "", "", erro.Wrap(err)
@@ -551,16 +548,20 @@ func (page Page) JS(w io.Writer, jsenv map[string]interface{}, inline bool) (tem
 	envscript := `window.Env = (function () {
   const env = JSON.parse("` + string(b) + `");
   return function (key) {
-    return env[key];
+    const val = env[key];
+    return JSON.parse(JSON.stringify(val));
   };
 })();`
 	envhash := sha256.Sum256([]byte(envscript))
-	scripts.WriteString("<script>")
-	scripts.WriteString(envscript)
-	scripts.WriteString("</script>")
-	scriptHashes.WriteString(" 'sha256-")
-	scriptHashes.WriteString(base64.StdEncoding.EncodeToString(envhash[0:]))
-	scriptHashes.WriteString("' ")
+	scriptsbuf.WriteString("<script>")
+	scriptsbuf.WriteString(envscript)
+	scriptsbuf.WriteString("</script>")
+	CSPbuf.WriteString("'sha256-")
+	CSPbuf.WriteString(base64.StdEncoding.EncodeToString(envhash[0:]))
+	CSPbuf.WriteString("' ")
+	if !inline {
+	} else {
+	}
 	// for i, key := range page.js {
 	// 	if i > 0 {
 	// 		scripts.WriteString("\n")
@@ -590,13 +591,7 @@ func (page Page) JS(w io.Writer, jsenv map[string]interface{}, inline bool) (tem
 	// 	scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
 	// 	scriptHashes.WriteString("' ")
 	// }
-	if scriptHashes.Len() > 0 {
-		if w, ok := w.(http.ResponseWriter); ok {
-			_ = AppendCSP(w, "script-src", "'self'") // NOTE: this may need to be removed
-			_ = AppendCSP(w, "script-src", scriptHashes.String())
-		}
-	}
-	return template.HTML(scripts.String()), scriptHashes.String(), nil
+	return template.HTML(scriptsbuf.String()), strings.TrimSpace(CSPbuf.String()), nil
 }
 
 type RenderOption func(*RenderConfig)
@@ -648,9 +643,10 @@ func (ry *Renderly) Lookup(mainfile string, includefiles ...string) (Page, error
 	var err error
 	// Else construct the page from scratch
 	page := Page{
-		bufpool:  ry.bufpool,
-		envfuncs: ry.envfuncs,
-		fsys:     ry.fsys,
+		bufpool:    ry.bufpool,
+		envfuncs:   ry.envfuncs,
+		fsys:       ry.fsys,
+		fsysprefix: ry.fsysprefix,
 	}
 	// Clone the page template from the base template
 	page.html, err = ry.basetemplate.Clone()
@@ -814,24 +810,36 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}, opts ...
 	for key, value := range config.jsenv {
 		jsenv[key] = value
 	}
-	var stylecsp, scriptcsp string
-	htmlenv["CSS"], stylecsp, err = page.CSS(w, config.inlineassets)
+	var stylesCSP, scriptsCSP string
+	htmlenv["CSS"], stylesCSP, err = page.CSS(config.inlineassets)
 	if err != nil {
 		return erro.Wrap(err)
 	}
-	htmlenv["JS"], scriptcsp, err = page.JS(w, jsenv, config.inlineassets)
+	htmlenv["JS"], scriptsCSP, err = page.JS(jsenv, config.inlineassets)
 	if err != nil {
 		return erro.Wrap(err)
 	}
-	CSP := "style-src " + stylecsp + "; script-src " + scriptcsp
+	var CSP string
 	if w, ok := w.(http.ResponseWriter); ok {
+		_ = AppendCSP(w, "script-src", scriptsCSP)
+		_ = AppendCSP(w, "style-src", stylesCSP)
 		CSP = w.Header().Get("Content-Security-Policy")
 	}
 	if CSP != "" {
 		htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv='Content-Security-Policy' content="` + CSP + `">`)
+	} else {
+		htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv='Content-Security-Policy' content="style-src ` + stylesCSP + "; script-src " + scriptsCSP + `">`)
 	}
+	// htmlenv["ContentSecurityPolicy"] = template.HTML(`<link rel="stylesheet" href="/blablabla">`)
 	if config.jsonifydata {
-		// TODO: jsonify data
+		b, err := json.Marshal(data)
+		if err != nil {
+			return erro.Wrap(err)
+		}
+		if w, ok := w.(http.ResponseWriter); ok {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(b)
+		}
 		return nil
 	}
 	err = executeTemplate(page.html, page.bufpool, w, page.html.Name(), data)
