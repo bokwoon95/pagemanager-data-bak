@@ -4,9 +4,8 @@
   <div>
     Copyright © 2020
     <span data-id="bokwoon95/plainsimple:globals" data-key="author">
-      {{ if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end }}
-    </span>
-    . All rights reserved.
+      {{- if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end -}}
+    </span>. All rights reserved.
   </div>
 </footer>
 {{ end }}

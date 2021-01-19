@@ -17,11 +17,11 @@
   <div class="tc white">
     {{ $title := getValueWithID .Env "title" "bokwoon95/plainsimple:globals" }}
     <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:globals" data-key="title">
-      {{ if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end }}
+      {{- if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end -}}
     </h1>
     {{ $subtitle := getValueWithID .Env "subtitle" "bokwoon95/plainsimple:globals" }}
     <h2 class="f3 text-border tl" data-id="bokwoon95/plainsimple:globals" data-key="subtitle">
-      {{ if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end }}
+      {{- if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end -}}
     </h2>
   </div>
 </header>

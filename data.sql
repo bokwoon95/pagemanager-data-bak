@@ -18,9 +18,8 @@ ON CONFLICT (url) DO UPDATE SET template = EXCLUDED.template
 INSERT INTO pm_routes
     (url, template)
 VALUES
-    ('/plainsimple', 'templates/plainsimple/index.html')
-    -- ('/editor', 'templates/editor/editor.html')
+    ('/editor', 'templates/editor/editor.html')
     ,('/post-index', 'templates/plainsimple/post-index.html')
-    -- ,('/cyschu', 'templates/cyschu/index.html')
+    ,('/cyschu', 'templates/cyschu/index.html')
 ON CONFLICT (url) DO UPDATE SET content = EXCLUDED.content
 ;

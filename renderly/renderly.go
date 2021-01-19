@@ -632,17 +632,22 @@ type RenderConfig struct {
 	jsenv        map[string]interface{}
 	jsonifydata  bool
 	inlineassets bool
+	csp          map[string][]string
 }
 
 func JSEnv(jsenv map[string]interface{}) RenderOption {
 	return func(config *RenderConfig) {
-		config.jsenv = jsenv
+		for name, value := range jsenv {
+			config.jsenv[name] = value
+		}
 	}
 }
 
 func HTMLEnv(htmlenv map[string]interface{}) RenderOption {
 	return func(config *RenderConfig) {
-		config.htmlenv = htmlenv
+		for name, value := range htmlenv {
+			config.htmlenv[name] = value
+		}
 	}
 }
 
@@ -655,6 +660,14 @@ func JSONifyData(jsonify bool) RenderOption {
 func InlineAssets(inline bool) RenderOption {
 	return func(config *RenderConfig) {
 		config.inlineassets = inline
+	}
+}
+
+func CSP(csp map[string][]string) RenderOption {
+	return func(config *RenderConfig) {
+		for name, values := range csp {
+			config.csp[name] = append(config.csp[name], values...)
+		}
 	}
 }
 
@@ -769,7 +782,11 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}, opts ...
 	if page.bufpool == nil || page.html == nil {
 		return fmt.Errorf("tried to render an empty page")
 	}
-	config := &RenderConfig{}
+	config := &RenderConfig{
+		htmlenv: make(map[string]interface{}),
+		jsenv:   make(map[string]interface{}),
+		csp:     make(map[string][]string),
+	}
 	for _, opt := range opts {
 		opt(config)
 	}
