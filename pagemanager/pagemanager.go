@@ -19,6 +19,7 @@ import (
 
 	"github.com/bokwoon95/erro"
 	"github.com/bokwoon95/pagemanager-data/renderly"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/dgraph-io/ristretto"
 	"github.com/dop251/goja"
 	_ "github.com/mattn/go-sqlite3"
@@ -580,6 +581,10 @@ func (pm *PageManager) FuncMap() map[string]interface{} {
 		"getValueWithID": pm.getValueWithID,
 		"getRows":        pm.getRows,
 		"getRowsWithID":  pm.getRowsWithID,
+		"spew": func(a ...interface{}) template.HTML {
+			s := spew.Sdump(a...)
+			return template.HTML("<pre>" + s + "</pre>")
+		},
 	}
 	return funcmap
 }
