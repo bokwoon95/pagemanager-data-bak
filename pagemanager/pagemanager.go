@@ -46,7 +46,7 @@ type PageManager struct {
 	fsys       fs.FS
 	fsHandler  http.Handler
 	notfound   http.Handler
-	render     *renderly.Renderly
+	renderly   *renderly.Renderly
 	htmlPolicy *bluemonday.Policy
 
 	firsttime     bool
@@ -114,7 +114,7 @@ func (pm *PageManager) Setup() error {
 		return erro.Wrap(err)
 	}
 	// render
-	pm.render, err = renderly.New(
+	pm.renderly, err = renderly.New(
 		pm.fsys,
 		renderly.AltFS("builtin", builtin),
 		renderly.TemplateFuncs(pm.FuncMap()),
@@ -187,7 +187,7 @@ func (pm *PageManager) getroute(path string) (Route, error) {
 }
 
 func (pm *PageManager) Middleware(next http.Handler) http.Handler {
-	mux := pm.render.FileServerMiddleware()(pm.newmux(next))
+	mux := pm.renderly.FileServerMiddleware()(pm.newmux(next))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		route, err := pm.getroute(r.URL.Path)
 		if err != nil {
@@ -246,11 +246,6 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 				includefiles = append(includefiles, metadata.Name)
 			}
 			includefiles = append(includefiles, metadata.Include...)
-			err = r.ParseForm()
-			if err != nil {
-				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
-				return
-			}
 			if editTemplate {
 				includefiles = append(includefiles, "builtin::editor.js", "builtin::editor.css")
 			}
@@ -258,7 +253,7 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 			if len(metadata.Env) > 0 {
 				data["Env"] = metadata.Env
 			}
-			err = pm.render.Page(w, r, mainfile, includefiles, data, renderly.JSEnv(metadata.Env))
+			err = pm.renderly.Page(w, r, mainfile, includefiles, data, renderly.JSEnv(metadata.Env))
 			if err != nil {
 				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
 				return
@@ -271,14 +266,14 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 
 func (pm *PageManager) ListenAndServe(addr string, handler http.Handler) error {
 	for {
-		if !pm.firsttime {
+		if pm.firsttime {
+			pm.firsttime = false
+		} else {
 			fmt.Println("restarted")
 			err := pm.Setup()
 			if err != nil {
 				return erro.Wrap(err)
 			}
-		} else {
-			pm.firsttime = false
 		}
 		srv := http.Server{
 			Addr:    addr,

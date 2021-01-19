@@ -501,12 +501,35 @@ func AppendCSP(w http.ResponseWriter, policy, value string) error {
 	return nil
 }
 
+func ExistsCSP(w http.ResponseWriter, policy, value string) bool {
+	const key = "Content-Security-Policy"
+	if value == "" {
+		return false
+	}
+	CSP := w.Header().Get(key)
+	if CSP == "" {
+		// w.Header().Set(key, policy+" "+value)
+		return false
+	}
+	policyGroups := strings.Split(CSP, ";")
+	for _, policyGroup := range policyGroups {
+		policyGroup := strings.TrimSpace(policyGroup)
+		if strings.HasPrefix(policyGroup, policy) {
+			if strings.Contains(policyGroup, value) {
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
 func (page Page) CSS(inline bool) (styles template.HTML, CSP string, err error) {
 	stylesbuf := &strings.Builder{}
 	CSPbuf := &strings.Builder{}
 	if !inline {
-		for i, name := range page.css {
-			if i > 0 {
+		for _, name := range page.css {
+			if stylesbuf.Len() > 0 {
 				stylesbuf.WriteString("\n")
 			}
 			stylesbuf.WriteString(`<link rel="stylesheet" href="/`)
@@ -516,9 +539,11 @@ func (page Page) CSS(inline bool) (styles template.HTML, CSP string, err error) 
 			stylesbuf.WriteString(`">`)
 		}
 	} else {
-		for i, name := range page.css {
-			if i > 0 {
+		for _, name := range page.css {
+			if stylesbuf.Len() > 0 {
 				stylesbuf.WriteString("\n")
+			}
+			if CSPbuf.Len() > 0 {
 				CSPbuf.WriteString(" ")
 			}
 			b, err := page.fsys.ReadFile(name)
@@ -564,10 +589,10 @@ func (page Page) JS(jsenv map[string]interface{}, inline bool) (scripts template
 	scriptsbuf.WriteString("</script>")
 	CSPbuf.WriteString("'sha256-")
 	CSPbuf.WriteString(base64.StdEncoding.EncodeToString(envhash[0:]))
-	CSPbuf.WriteString("' ")
+	CSPbuf.WriteString("'")
 	if !inline {
-		for i, name := range page.js {
-			if i > 0 {
+		for _, name := range page.js {
+			if scriptsbuf.Len() > 0 {
 				scriptsbuf.WriteString("\n")
 			}
 			scriptsbuf.WriteString(`<script src="/`)
@@ -577,9 +602,11 @@ func (page Page) JS(jsenv map[string]interface{}, inline bool) (scripts template
 			scriptsbuf.WriteString(`"></script>`)
 		}
 	} else {
-		for i, name := range page.js {
-			if i > 0 {
+		for _, name := range page.js {
+			if scriptsbuf.Len() > 0 {
 				scriptsbuf.WriteString("\n")
+			}
+			if CSPbuf.Len() > 0 {
 				CSPbuf.WriteString(" ")
 			}
 			b, err := page.fsys.ReadFile(name)
@@ -814,27 +841,71 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}, opts ...
 	for key, value := range config.jsenv {
 		jsenv[key] = value
 	}
+	var styles, scripts template.HTML
 	var stylesCSP, scriptsCSP string
-	htmlenv["CSS"], stylesCSP, err = page.CSS(config.inlineassets)
+	styles, stylesCSP, err = page.CSS(config.inlineassets)
 	if err != nil {
 		return erro.Wrap(err)
 	}
-	htmlenv["JS"], scriptsCSP, err = page.JS(jsenv, config.inlineassets)
+	htmlenv["CSS"] = styles
+	scripts, scriptsCSP, err = page.JS(jsenv, config.inlineassets)
 	if err != nil {
 		return erro.Wrap(err)
 	}
-	var CSP string
+	htmlenv["JS"] = scripts
+	var selfstyles, selfscripts bool
+	if styles != "" && !config.inlineassets {
+		selfstyles = true
+	}
+	if scripts != "" && !config.inlineassets {
+		selfscripts = true
+	}
+	CSP := &strings.Builder{}
 	if w, ok := w.(http.ResponseWriter); ok {
-		_ = AppendCSP(w, "script-src", scriptsCSP)
+		// style-src
 		_ = AppendCSP(w, "style-src", stylesCSP)
-		CSP = w.Header().Get("Content-Security-Policy")
+		if selfstyles && !ExistsCSP(w, "style-src", "'self'") {
+			_ = AppendCSP(w, "style-src", "'self'")
+		}
+		// script-src
+		_ = AppendCSP(w, "script-src", scriptsCSP)
+		if selfscripts && !ExistsCSP(w, "script-src", "'self'") {
+			_ = AppendCSP(w, "script-src", "'self'")
+		}
+		CSP.WriteString(w.Header().Get("Content-Security-Policy"))
 	}
-	if CSP != "" {
-		htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv='Content-Security-Policy' content="` + CSP + `">`)
-	} else {
-		htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv='Content-Security-Policy' content="style-src ` + stylesCSP + "; script-src " + scriptsCSP + `">`)
+	if CSP.Len() == 0 {
+		CSP.WriteString("style-src")
+		if selfstyles {
+			if CSP.Len() > 0 {
+				CSP.WriteString(" ")
+			}
+			CSP.WriteString("'self'")
+		}
+		if stylesCSP != "" {
+			if CSP.Len() > 0 {
+				CSP.WriteString(" ")
+			}
+			CSP.WriteString(stylesCSP)
+		}
+		if CSP.Len() > 0 {
+			CSP.WriteString("; ")
+		}
+		CSP.WriteString("script-src")
+		if selfscripts {
+			if CSP.Len() > 0 {
+				CSP.WriteString(" ")
+			}
+			CSP.WriteString("'self'")
+		}
+		if scriptsCSP != "" {
+			if CSP.Len() > 0 {
+				CSP.WriteString(" ")
+			}
+			CSP.WriteString(scriptsCSP)
+		}
 	}
-	// htmlenv["ContentSecurityPolicy"] = template.HTML(`<link rel="stylesheet" href="/blablabla">`)
+	htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv='Content-Security-Policy' content="` + CSP.String() + `">`)
 	if config.jsonifydata {
 		b, err := json.Marshal(data)
 		if err != nil {
