@@ -25,3 +25,5 @@ include = [
 include = [
     "templates/plainsimple/style.css",
 ]
+    ["templates/plainsimple/index.html".env]
+    globalkey = "bokwoon95/plainsimple:globals"

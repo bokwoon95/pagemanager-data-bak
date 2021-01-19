@@ -548,7 +548,13 @@ func (page Page) JS(jsenv map[string]interface{}, inline bool) (scripts template
 	envscript := `window.Env = (function () {
   const env = JSON.parse("` + string(b) + `");
   return function (key) {
+    if (key === undefined) {
+      return JSON.parse(JSON.stringify(env));
+    }
     const val = env[key];
+    if (val === undefined) {
+      return undefined;
+    }
     return JSON.parse(JSON.stringify(val));
   };
 })();`

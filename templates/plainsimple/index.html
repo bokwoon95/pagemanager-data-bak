@@ -22,12 +22,12 @@
   </nav>
   <header class="hero-banner flex justify-center items-center">
     <div class="tc white">
-      {{ $title := getValueWithID .Env "title" "bokwoon95/plainsimple:globals" }}
-      <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:globals" data-key="title">
+      {{ $title := getValueWithID .Env "title" .Env.globalkey }}
+      <h1 class="f1 text-border" data-id="{{ .Env.globalkey }}" data-key="title">
         {{ if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end }}
       </h1>
-      {{ $subtitle := getValueWithID .Env "subtitle" "bokwoon95/plainsimple:globals" }}
-      <h2 class="f3 text-border tl" data-id="bokwoon95/plainsimple:globals" data-key="subtitle">
+      {{ $subtitle := getValueWithID .Env "subtitle" .Env.globalkey }}
+      <h2 class="f3 text-border tl" data-id="{{ .Env.globalkey }}" data-key="subtitle">
         {{ if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end }}
       </h2>
     </div>
@@ -73,12 +73,11 @@
     {{ end }}
   </main>
   <footer class="flex justify-center mt5 pb3">
-    {{ $author := getValueWithID .Env "author" "bokwoon95/plainsimple:globals" }}
+    {{ $author := getValueWithID .Env "author" .Env.globalkey }}
     <div>Copyright © 2020
-      <span data-id="bokwoon95/plainsimple:globals" data-key="author">
-        {{ if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end }}
-      </span>
-      . All rights reserved.
+      <span data-id="{{ .Env.globalkey }}" data-key="author">
+        {{ if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end -}}
+      </span>. All rights reserved.
     </div>
   </footer>
   {{ .Env.JS }}

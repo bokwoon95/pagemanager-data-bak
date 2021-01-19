@@ -246,8 +246,6 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 				includefiles = append(includefiles, metadata.Name)
 			}
 			includefiles = append(includefiles, metadata.Include...)
-			// files = append(files, metadata.Name)
-			// files = append(files, metadata.Include...)
 			err = r.ParseForm()
 			if err != nil {
 				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
@@ -256,7 +254,11 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 			if editTemplate {
 				includefiles = append(includefiles, "builtin::editor.js", "builtin::editor.css")
 			}
-			err = pm.render.Page(w, r, mainfile, includefiles, nil)
+			data := make(map[string]interface{})
+			if len(metadata.Env) > 0 {
+				data["Env"] = metadata.Env
+			}
+			err = pm.render.Page(w, r, mainfile, includefiles, data, renderly.JSEnv(metadata.Env))
 			if err != nil {
 				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
 				return
@@ -302,7 +304,7 @@ type TemplateMetadata struct {
 	MainTemplate string                 `json,toml,mapstructure:"main_template"`
 	Include      []string               `json,toml,mapstructure:"include"`
 	CSP          map[string][]string    `json,toml,mapstructure:"content_security_policy"`
-	Args         map[string]interface{} `json,toml,mapstructure:"args"`
+	Env          map[string]interface{} `json,toml,mapstructure:"env"`
 }
 
 func GetTemplateMetadata(fsys fs.FS, filename string) (TemplateMetadata, error) {
