@@ -44,6 +44,11 @@ html {
   border-width: thin;
   border-style: dashed;
 }
+.contenteditable-readonly {
+  background-color: hsla(121, 54%, 25%, 0.3);
+  border-width: thin;
+  border-style: dashed;
+}
 .contenteditable-selected {
   background-color: hsla(10, 34%, 79%, 0.3);
   border-width: thin;

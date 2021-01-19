@@ -166,7 +166,7 @@ function toolbarButtons(globalVariables) {
     {
       title: "save changes to page",
       innerHTML: `Save`,
-      onclick: savedata,
+      onclick: savedata2,
     },
     {
       title: "remove element on click",
@@ -528,16 +528,13 @@ async function savedata() {
     const arraytracker = {};
     return function (keys, key) {
       const path = keys.concat(key);
-      let count = get(arraytracker, path);
-      if (count === undefined) {
-        count = 0;
-      }
+      const count = get(arraytracker, path) || 0;
       key = `[${count}]` + key.slice(2, key.length);
       set(arraytracker, path, count + 1);
       return key;
     };
   })();
-  const pageid = window.location.pathname;
+  const pageid = window.Env("PageID"); //  || window.location.pathname;
   for (const node of document.querySelectorAll("[data-key]")) {
     const id = node.dataset.id || pageid;
     if (data[id] === null || data[id] === undefined) {
@@ -548,20 +545,63 @@ async function savedata() {
   console.log(data);
 }
 
+async function savedata2() {
+  const data = {};
+  const pageid = window.Env("PageID");
+  const arrayindex = (function () {
+    const indextracker = {};
+    return function (key) {
+      const i = key.indexOf("[]");
+      if (i < 0) {
+        return [-1, key];
+      }
+      const arrayname = key.slice(0, i);
+      const count = get(indextracker, arrayname) || 0;
+      set(indextracker, arrayname, count + 1);
+      const newkey = key.replace("[]", `[${count}]`);
+      return [count, newkey];
+    };
+  })();
+  for (const node of document.querySelectorAll("[data-key],[data-key-href]")) {
+    const id = node.dataset.id || pageid;
+    if (data[id] === null || data[id] === undefined) {
+      data[id] = {};
+    }
+    if (node.dataset.key === undefined) {
+      console.log(node);
+      continue;
+    }
+    const [i, key] = arrayindex(node.dataset.key);
+    set(data[id], key, node.innerHTML);
+    if (i > 0 && node.dataset.keyHref && node.getAttribute("href") !== null) {
+      const keyHref = node.dataset.keyHref.replace("[]", `[${i}]`);
+      set(data[id], keyHref, node.getAttribute("href"));
+    }
+  }
+  console.log(data);
+}
+
 function setup() {
   const globalVariables = {};
-  for (const node of document.querySelectorAll("[data-key]")) {
+  for (const node of document.querySelectorAll("[data-key],[data-key-href]")) {
     node.setAttribute("contenteditable", true);
     node.classList.add("contenteditable");
     node.classList.remove("contenteditable-selected");
-    node.addEventListener("mouseover", function() {
+    if (node.dataset.keyHref && !node.dataset.key) {
+      node.classList.add("contenteditable-readonly");
+      node.classList.remove("contenteditable");
+      node.addEventListener("keydown", function (event) {
+        event.preventDefault();
+      });
+    }
+    node.addEventListener("mouseover", function () {
       if (!globalVariables.removeState) {
         return;
       }
       node.classList.add("contenteditable-selected");
       node.classList.remove("contenteditable");
     });
-    node.addEventListener("mouseout", function() {
+    node.addEventListener("mouseout", function () {
       if (!globalVariables.removeState) {
         return;
       }
@@ -569,11 +609,11 @@ function setup() {
       node.classList.remove("contenteditable");
     });
   }
-  for (const node of document.querySelectorAll("[data-endkey]")) {
-    node.setAttribute("contenteditable", true);
-    node.classList.add("contenteditable");
-    node.classList.remove("contenteditable-selected");
-  }
+  // for (const node of document.querySelectorAll("[data-endkey]")) {
+  //   node.setAttribute("contenteditable", true);
+  //   node.classList.add("contenteditable");
+  //   node.classList.remove("contenteditable-selected");
+  // }
   const toolbar = document.createElement("div");
   toolbar.classList.add("pm-toolbar");
   const buttonsData = toolbarButtons(globalVariables);

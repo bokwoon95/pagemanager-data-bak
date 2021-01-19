@@ -1,26 +1,26 @@
 {{ define "header" }}
 <nav class="absolute w-100">
   <ul class="flex flex-wrap justify-end list pa0">
-    {{ if .Env.editMode }}
+    {{ if .Env.EditMode }}
     <li><button class="mh2 pointer">add item</button></li>
     {{ end }}
     {{ range $i, $row := getRows .Env "nav" }}
-    <li class="nav-link"><a href="{{ $row.link }}" data-key-href="nav[].link" data-key="nav[].title">{{ $row.title }}</a></li>
+    <li class="nav-link" data-row="nav"><a href="{{ $row.link }}" data-row-href="link" data-row-value="title">{{ $row.title }}</a></li>
     {{ else }}
-    <li class="nav-link"><a href="/" data-key-href="nav[].link" data-key="nav[].title">Home</a></li>
-    <li class="nav-link"><a href="/about-me" data-key-href="nav[].link" data-key="nav[].title">About Me</a></li>
-    <li class="nav-link"><a href="/contact" data-key-href="nav[].link" data-key="nav[].title">Contact</a></li>
+    <li class="nav-link" data-row="nav"><a href="/" data-row-href="link" data-row-value="title">Home</a></li>
+    <li class="nav-link" data-row="nav"><a href="/about-me" data-row-href="link" data-row-value="title">About Me</a></li>
+    <li class="nav-link" data-row="nav"><a href="/contact" data-row-href="link" data-row-value="title">Contact</a></li>
     {{ end }}
   </ul>
 </nav>
 <header class="hero-banner flex justify-center items-center">
   <div class="tc white">
     {{ $title := getValueWithID .Env "title" "bokwoon95/plainsimple:globals" }}
-    <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:globals" data-key="title">
+    <h1 class="f1 text-border" data-id="bokwoon95/plainsimple:globals" data-value="title">
       {{- if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end -}}
     </h1>
     {{ $subtitle := getValueWithID .Env "subtitle" "bokwoon95/plainsimple:globals" }}
-    <h2 class="f3 text-border tl" data-id="bokwoon95/plainsimple:globals" data-key="subtitle">
+    <h2 class="f3 text-border tl" data-id="bokwoon95/plainsimple:globals" data-value="subtitle">
       {{- if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end -}}
     </h2>
   </div>
