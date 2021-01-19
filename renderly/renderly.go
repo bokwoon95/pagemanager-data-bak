@@ -523,7 +523,7 @@ func (page Page) CSS(inline bool) (styles template.HTML, CSP string, err error) 
 			}
 			b, err := page.fsys.ReadFile(name)
 			if err != nil {
-				return template.HTML(stylesbuf.String()), strings.TrimSpace(CSPbuf.String()), erro.Wrap(err)
+				return "", "", erro.Wrap(err)
 			}
 			stylesbuf.WriteString("<style>")
 			_, _ = stylesbuf.Write(b)
@@ -560,37 +560,35 @@ func (page Page) JS(jsenv map[string]interface{}, inline bool) (scripts template
 	CSPbuf.WriteString(base64.StdEncoding.EncodeToString(envhash[0:]))
 	CSPbuf.WriteString("' ")
 	if !inline {
+		for i, name := range page.js {
+			if i > 0 {
+				scriptsbuf.WriteString("\n")
+			}
+			scriptsbuf.WriteString(`<script src="/`)
+			scriptsbuf.WriteString(strings.Trim(page.fsysprefix, "/"))
+			scriptsbuf.WriteString("/")
+			scriptsbuf.WriteString(name)
+			scriptsbuf.WriteString(`"></script>`)
+		}
 	} else {
+		for i, name := range page.js {
+			if i > 0 {
+				scriptsbuf.WriteString("\n")
+				CSPbuf.WriteString(" ")
+			}
+			b, err := page.fsys.ReadFile(name)
+			if err != nil {
+				return "", "", erro.Wrap(err)
+			}
+			scriptsbuf.WriteString("<script>")
+			_, _ = scriptsbuf.Write(b)
+			scriptsbuf.WriteString("</script>")
+			hash := sha256.Sum256(b)
+			CSPbuf.WriteString("'sha256-")
+			CSPbuf.WriteString(base64.StdEncoding.EncodeToString(hash[0:]))
+			CSPbuf.WriteString("'")
+		}
 	}
-	// for i, key := range page.js {
-	// 	if i > 0 {
-	// 		scripts.WriteString("\n")
-	// 		scriptHashes.WriteString(" ")
-	// 	}
-	// 	var asset Asset
-	// 	if key.pluginID == "" {
-	// 		b, err := page.fsys.ReadFile(key.name)
-	// 		if err != nil {
-	// 			return "", "", erro.Wrap(err)
-	// 		}
-	// 		asset = Asset{
-	// 			Data: string(b),
-	// 			hash: sha256.Sum256(b),
-	// 		}
-	// 	} else {
-	// 		var ok bool
-	// 		asset, ok = page.assets[key]
-	// 		if !ok {
-	// 			return "", "", erro.Wrap(fmt.Errorf("tried looking for asset %+v which doesn't exist", key))
-	// 		}
-	// 	}
-	// 	scripts.WriteString("<script>")
-	// 	scripts.WriteString(asset.Data)
-	// 	scripts.WriteString("</script>")
-	// 	scriptHashes.WriteString(" 'sha256-")
-	// 	scriptHashes.WriteString(base64.StdEncoding.EncodeToString(asset.hash[0:]))
-	// 	scriptHashes.WriteString("' ")
-	// }
 	return template.HTML(scriptsbuf.String()), strings.TrimSpace(CSPbuf.String()), nil
 }
 
