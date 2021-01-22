@@ -1,0 +1,22 @@
+I need to figure out how to implement the following in contenteditables
+✓ Semantic Text
+✗ Links
+✗ Images
+✗ Video Embeds
+
+Additionally, template authors may set data-href (in an <a>), data-img (in an <img>), or data-video-embed (in a generic element).
+This would mean the element is not a generic contenteditable, but a specific purpose one.
+- For data-href, the link is still a contenteditable but the link text may not be editable; the user can change the href value with the 'modify link' button.
+- For data-img, the image becomes a canvas with a button to upload an image.
+    - The initial canvas dimensions are set by the dimensions specified in the <img> tag.
+    - Once uploaded the image fills the canvas UI, and the user can then rotate/crop the image.
+    - When the user hits 'save', the image as bounded by the canvas UI is sent to the server.
+    - Displaying the image is simply a matter of filling in the appropriate src="..." in <img>.
+        - To implement fallback images in case the server image does not exist, the template author can specify data-img-fallback="{{ name }}"
+        - There needs to be some way for javascript to detect any broken data-img links and linking to the fallback image as necessary.
+        - Maybe a server-side function is exposed to template authors:
+        {{ if fileExists "pm-uploads/some-image.jpg" }}
+        <img src="/static/pm-uploads/some-image.jpg">
+        {{ else }}
+        <img src="/static/templates/mytheme/default-img.jpg">
+        {{ end }}
