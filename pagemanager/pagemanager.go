@@ -140,6 +140,10 @@ func (pm *PageManager) newmux(defaultHandler http.Handler) http.Handler {
 		default:
 		}
 	})
+	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseMultipartForm(10 << 20)
+		fmt.Println(r.FormValue("data"))
+	})
 	return mux
 }
 
@@ -253,7 +257,12 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 			if len(metadata.Env) > 0 {
 				data["Env"] = metadata.Env
 			}
-			err = pm.renderly.Page(w, r, mainfile, includefiles, data, renderly.JSEnv(metadata.Env))
+			_ = r.ParseForm()
+			var jsonify bool
+			if _, ok := r.Form["json"]; ok {
+				jsonify = true
+			}
+			err = pm.renderly.Page(w, r, mainfile, includefiles, data, renderly.JSEnv(metadata.Env), renderly.JSONifyData(jsonify))
 			if err != nil {
 				http.Error(w, erro.Sdump(err), http.StatusInternalServerError)
 				return
@@ -308,6 +317,7 @@ func GetTemplateMetadata(fsys fs.FS, filename string) (TemplateMetadata, error) 
 	// var configPath string
 	metadata := TemplateMetadata{
 		Name: filename,
+		Env:  make(map[string]interface{}),
 	}
 	currentPath := filename
 	var b []byte
@@ -566,7 +576,7 @@ func ensuretables(driver string, db *sql.DB) error {
 
 func EnvFunc(w io.Writer, r *http.Request, env map[string]interface{}) error {
 	env["PageID"] = r.URL.Path
-	env["EditMode"] = false
+	env["EditMode"] = strings.HasSuffix(r.URL.Path, "/edit") || strings.HasSuffix(r.URL.Path, "/edit/")
 	return nil
 }
 

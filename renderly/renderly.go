@@ -922,7 +922,7 @@ func (page Page) Render(w io.Writer, r *http.Request, data interface{}, opts ...
 			CSP.WriteString(scriptsCSP)
 		}
 	}
-	htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv='Content-Security-Policy' content="` + CSP.String() + `">`)
+	htmlenv["ContentSecurityPolicy"] = template.HTML(`<meta http-equiv="Content-Security-Policy" content="` + CSP.String() + `">`)
 	if config.jsonifydata {
 		b, err := json.Marshal(data)
 		if err != nil {

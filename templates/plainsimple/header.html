@@ -1,6 +1,6 @@
 {{ define "header" }}
 <nav class="absolute w-100">
-  <ul class="flex flex-wrap justify-end list pa0">
+  <ul class="flex flex-wrap justify-end list pa0" data-row="header-sections">
     {{ if .Env.EditMode }}
     <li><button class="mh2 pointer">add item</button></li>
     {{ end }}
@@ -12,6 +12,7 @@
     <li class="nav-link" data-row="nav"><a href="/contact" data-row-href="link" data-row-value="title">Contact</a></li>
     {{ end }}
   </ul>
+  <li data-template=""></li>
 </nav>
 <header class="hero-banner flex justify-center items-center">
   <div class="tc white">

@@ -548,37 +548,67 @@ async function savedata() {
 async function savedata2() {
   const data = {};
   const pageid = window.Env("PageID");
-  const arrayindex = (function () {
-    const indextracker = {};
-    return function (key) {
-      const i = key.indexOf("[]");
-      if (i < 0) {
-        return [-1, key];
-      }
-      const arrayname = key.slice(0, i);
-      const count = get(indextracker, arrayname) || 0;
-      set(indextracker, arrayname, count + 1);
-      const newkey = key.replace("[]", `[${count}]`);
-      return [count, newkey];
-    };
-  })();
-  for (const node of document.querySelectorAll("[data-key],[data-key-href]")) {
-    const id = node.dataset.id || pageid;
+  if (!pageid) {
+    throw new Error("PageID not provided for this page");
+  }
+  const indextracker = {};
+  for (const node of document.querySelectorAll("[data-row]")) {
+    const rowname = node.getAttribute("data-row");
+    const index = indextracker[rowname] || 0;
+    node.setAttribute("data-row-index", index);
+    indextracker[rowname] = index + 1;
+  }
+  for (const node of document.querySelectorAll("[data-value],[data-row-value],[data-row-href]")) {
+    const id = node.getAttribute("data-id") || pageid;
     if (data[id] === null || data[id] === undefined) {
       data[id] = {};
     }
-    if (node.dataset.key === undefined) {
-      console.log(node);
+    const value = node.getAttribute("data-value");
+    const rowvalue = node.getAttribute("data-row-value");
+    const rowhref = node.getAttribute("data-row-href");
+    if (value !== null) {
+      set(data[id], value, node.innerHTML);
       continue;
     }
-    const [i, key] = arrayindex(node.dataset.key);
-    set(data[id], key, node.innerHTML);
-    if (i > 0 && node.dataset.keyHref && node.getAttribute("href") !== null) {
-      const keyHref = node.dataset.keyHref.replace("[]", `[${i}]`);
-      set(data[id], keyHref, node.getAttribute("href"));
+    if (rowvalue !== null || rowhref !== null) {
+      let rowindex;
+      let rowname;
+      let currentNode = node;
+      // Find parent row
+      while (currentNode.parentNode && currentNode.parentNode.nodeName !== "BODY") {
+        const index = currentNode.getAttribute("data-row-index");
+        if (index !== null) {
+          rowname = currentNode.getAttribute("data-row");
+          if (rowname === null || rowname === "") {
+            throw new Error(`data-row=${rowname} is not a valid row name`);
+          }
+          rowindex = parseInt(index, 10);
+          if (isNaN(index)) {
+            throw new Error(`data-row-index=${index} is not a number`);
+          }
+          break;
+        }
+        currentNode = currentNode.parentNode;
+      }
+      if (rowname === undefined || rowindex === undefined) {
+        throw new Error(`data-row-value=${rowvalue} found without parent data-row`);
+      }
+      if (rowvalue !== null) {
+        set(data, [rowname, rowindex, rowvalue], node.innerHTML);
+      }
+      if (rowhref !== null) {
+        set(data, [rowname, rowindex, rowhref], node.getAttribute("href"));
+      }
     }
   }
-  console.log(data);
+  const formdata = new FormData();
+  formdata.append("username", "Groucho");
+  formdata.append("accountnum", 123456); // number 123456 is immediately converted to a string "123456"
+  formdata.append("data", JSON.stringify(data));
+  const _ = await fetch("/upload", {
+    method: "POST",
+    body: formdata,
+  });
 }
 
 function setup() {
@@ -608,6 +638,9 @@ function setup() {
       node.classList.add("contenteditable-selected");
       node.classList.remove("contenteditable");
     });
+  }
+  for (const node of document.querySelectorAll("[data-template]")) {
+    // node.
   }
   // for (const node of document.querySelectorAll("[data-endkey]")) {
   //   node.setAttribute("contenteditable", true);

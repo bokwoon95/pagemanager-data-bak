@@ -1,10 +1,10 @@
 {{ define "footer" }}
 <footer class="flex justify-center mt5 pb3">
-  {{ $author := getValueWithID .Env "author" "bokwoon95/plainsimple:globals" }}
+  {{ $owner := getValueWithID .Env "owner" "bokwoon95/plainsimple:globals" }}
   <div>
     Copyright © 2020
-    <span data-id="bokwoon95/plainsimple:globals" data-key="author">
-      {{- if ne nil $author }}{{ $author | safeHTML }}{{ else }}Robert Table{{ end -}}
+    <span data-id="bokwoon95/plainsimple:globals" data-value="owner">
+      {{- if ne nil $owner }}{{ $owner | safeHTML }}{{ else }}Robert Table{{ end -}}
     </span>. All rights reserved.
   </div>
 </footer>
