@@ -6,6 +6,8 @@ include = [
     "templates/plainsimple/header.html",
     "templates/plainsimple/footer.html",
     "templates/plainsimple/style.css",
+    "templates/plainsimple/imagecropper.js",
+    "templates/plainsimple/imagecropper.css",
     "templates/plainsimple/post-index.js",
 ]
     ["templates/plainsimple/post-index.html".content_security_policy]

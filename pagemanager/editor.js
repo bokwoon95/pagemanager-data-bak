@@ -461,6 +461,8 @@ function unlist() {
         if (li.nodeName !== "LI") {
           continue;
         }
+        // if the previous item is not a block element, we insert a manual
+        // linebreak <br> so that the current element starts on a new line
         if (!prevItemIsBlockElement) {
           fragment.append(document.createElement("br"));
         }

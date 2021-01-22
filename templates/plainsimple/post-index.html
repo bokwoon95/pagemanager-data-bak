@@ -4,10 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   {{ .Env.CSS }}
-  {{ .Env.ContentSecurityPolicy }}
+  {{/* .Env.ContentSecurityPolicy */}}
   <title>Post Index</title>
 </head>
 <body>
+  <div id="imagecropper"></div>
+  <div><button id="crop">Crop</button></div>
   {{ template "header" . }}
   <main class="posts-list pt4-l pb2-l ph7-l">
     {{ range $i, $post := getRows .Env "posts" }}
@@ -49,7 +51,8 @@
     </article>
     {{ end }}
   </main>
-  <input type="file" name="pfp" accept="image/png, image/jpeg">
+  <!-- <input type="file" name="pfp" accept="image/png, image/jpeg"> -->
+  <!-- <img class="resize&#45;image" src="/static/templates/plainsimple/face.jpg" alt="Image" /> -->
   {{ template "footer" . }}
   {{ .Env.JS }}
 </body>
