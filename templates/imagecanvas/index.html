@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  {{ .Env.CSS }}
   <title>imagecanvas</title>
 </head>
 <body>
-  <div></div>
+  <!-- <img class="db" height="200" width="200" src="{{ .Env.StaticPrefix }}/uploads/x.jpg" data&#45;src&#45;fallback="{{ .Env.StaticPrefix }}/templates/imagecanvas/face.jpg"> -->
+  {{ .Env.JS }}
 </body>
 </html>

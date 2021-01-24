@@ -208,7 +208,7 @@ func (ry *Renderly) FileServer() http.Handler {
 
 func (ry *Renderly) FileServerMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		prefix := "/static/"
+		var prefix string
 		if ry.fsysprefix != "" {
 			prefix = "/" + strings.Trim(ry.fsysprefix, "/") + "/"
 		}
@@ -421,6 +421,13 @@ func GlobalJSEnvFuncs(fns ...EnvFunc) Option {
 func AltFS(name string, fsys fs.FS) Option {
 	return func(ry *Renderly) error {
 		ry.fsys.altFS[name] = fsys
+		return nil
+	}
+}
+
+func URLPrefix(prefix string) Option {
+	return func(ry *Renderly) error {
+		ry.fsysprefix = prefix
 		return nil
 	}
 }

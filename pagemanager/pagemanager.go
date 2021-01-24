@@ -44,6 +44,7 @@ type PageManager struct {
 	routecache *ristretto.Cache // TODO: make this a Cache interface instead
 	restart    chan struct{}
 	fsys       fs.FS
+	fsysprefix string
 	fsHandler  http.Handler
 	notfound   http.Handler
 	renderly   *renderly.Renderly
@@ -119,8 +120,8 @@ func (pm *PageManager) Setup() error {
 		renderly.AltFS("builtin", builtin),
 		renderly.TemplateFuncs(pm.FuncMap()),
 		renderly.GlobalCSS(nil, "builtin::tachyons.min.css"),
-		renderly.GlobalHTMLEnvFuncs(EnvFunc),
-		renderly.GlobalJSEnvFuncs(EnvFunc),
+		renderly.GlobalHTMLEnvFuncs(pm.EnvFunc),
+		renderly.GlobalJSEnvFuncs(pm.EnvFunc),
 	)
 	if err != nil {
 		return erro.Wrap(err)
@@ -574,9 +575,10 @@ func ensuretables(driver string, db *sql.DB) error {
 	return nil
 }
 
-func EnvFunc(w io.Writer, r *http.Request, env map[string]interface{}) error {
+func (pm *PageManager) EnvFunc(w io.Writer, r *http.Request, env map[string]interface{}) error {
 	env["PageID"] = r.URL.Path
 	env["EditMode"] = strings.HasSuffix(r.URL.Path, "/edit") || strings.HasSuffix(r.URL.Path, "/edit/")
+	env["StaticPrefix"] = "/static"
 	return nil
 }
 
