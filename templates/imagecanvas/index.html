@@ -6,7 +6,9 @@
   <title>imagecanvas</title>
 </head>
 <body>
-  <!-- <img class="db" height="200" width="200" src="{{ .Env.StaticPrefix }}/uploads/x.jpg" data&#45;src&#45;fallback="{{ .Env.StaticPrefix }}/templates/imagecanvas/face.jpg"> -->
+  <img width="400" height="400" src="/static/templates/imagecanvas/face.jpg" data-img-fallback="/static/templates/imagecanvas/face.jpg">
+  <input type="range" id="resize" min="-100" max="100" step="1" value="0">
+  <input type="file" id="imgpicker" accept="image/png, image/jpeg">
   {{ .Env.JS }}
 </body>
 </html>

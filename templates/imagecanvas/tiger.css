@@ -1,0 +1,7 @@
+body {
+  background-color: ivory;
+  padding: 20px;
+}
+#canvas {
+  border: 1px solid red;
+}
