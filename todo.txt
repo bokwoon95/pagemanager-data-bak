@@ -1,8 +1,10 @@
-I need to figure out how to implement the following in contenteditables
-✓ Semantic Text
-✗ Links
-✗ Images
-✗ Video Embeds
+pagemanager.js
+- Contenteditable
+    ✓ Semantic Text
+    ✗ Links
+    ✗ Images
+    ✗ Video Embeds
+- Images
 
 Additionally, template authors may set data-href (in an <a>), data-img (in an <img>), or data-video-embed (in a generic element).
 This would mean the element is not a generic contenteditable, but a specific purpose one.

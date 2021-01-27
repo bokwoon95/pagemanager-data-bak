@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>New Controller By Abinash</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<script>
+
+ //Initializing the values you can change these as your need
+ var control_width = '300';//in px
+ var eachdivwidth = (control_width/100)-1;
+ var bar_div_width = eachdivwidth+5;
+ //else show color
+ var barcolor = '#2AAAFF';
+ var changeimage = 1;
+
+ var imw ='';
+ var imh = '';
+function CreateController()
+{
+
+ var control_sting ="";
+ control_sting = control_sting+"<div style='height:10px;cursor:pointer; width:"+control_width+"px; float:left; position:absolute; top:0px;left:0px;' onmousedown=\"rsvalue('1')\" onmouseup=\"rsvalue('0')\">";
+ //creating the smalldiv inside
+ for(var i = 100 ;i>=1; i--)
+ {
+  control_sting = control_sting+"<div id='tde"+i+"' onmouseover=\"setcolor('"+i+"')\" ";
+  if(i==100)
+  {
+   control_sting = control_sting+" style='background-color:"+barcolor+"; height:10px; float:left; width:"+bar_div_width+"px;'";
+  }
+  else
+  {
+   control_sting = control_sting+" style='float:left;height:10px;  width:"+eachdivwidth+"px;background-color:#ffffff;'";
+   }
+
+   control_sting = control_sting+" ><div style=' position:relative;margin-top:5px; border-top:1px solid #666666;width:"+eachdivwidth+"px;'>";
+    control_sting = control_sting+"</div></div>";
+ }
+
+ //after all cretae the control
+ document.getElementById('controldiv').innerHTML = control_sting;
+}
+//changuing  the hidden value so by which we can generate the drag event
+function rsvalue(x)
+{
+ document.getElementById('rs').value=x;
+}
+//changhing the over div color and making all other div to initial state
+function setcolor(goti)
+{
+ if(document.getElementById('rs').value == 1)
+ {
+  for(var i=1;i<=100;i++)
+  {
+   document.getElementById
+('tde'+i).style.backgroundColor='#FFFFFF';
+   document.getElementById('tde'+i).style.width=
+eachdivwidth+'px';
+  }
+  document.getElementById
+('tde'+goti).style.backgroundColor=barcolor;document.getElementById('tde'+goti).style.width=
+bar_div_width+'px';
+  if(changeimage == 1)
+  {changeimageSIze(goti);}
+ }
+}
+//This function is used to resize the image
+function changeimageSIze(goti)
+{
+
+ var imgsize_ori  =document.getElementById('myimage').style.width;
+ imgsize_ori = imgsize_ori.split("px");
+ imgsize_ori = imgsize_ori[0];
+
+ if(goti == 100 || goti==99)
+ imw = imgsize_ori
+
+ var imgsize_orih =document.getElementById('myimage').style.height;
+ imgsize_orih = imgsize_orih.split("px");
+ imgsize_orih = imgsize_orih[0];
+
+ if(goti == 100 || goti==99)
+ imh = imgsize_orih
+
+ imgsize_ori = Math.floor((parseInt(imw)/100)*goti);
+ imgsize_orih = Math.floor((parseInt(imh)/100)*goti);
+ if(imgsize_ori > 101)
+ document.getElementById('myimage').style.width = imgsize_ori+"px";
+ if(imgsize_orih > 101)
+ document.getElementById('myimage').style.height = imgsize_orih+"px";
+
+ if(goti == 100){
+ document.getElementById('myimage').style.width = imw+"px";
+ document.getElementById('myimage').style.height = imh+"px";
+ }
+}
+</script>
+</head>
+<body onLoad="CreateController()">
+<img src="http://www.mindfiresolutions.com/mindfire/banners_12.jpg" id="myimage" style="width:131px; width:533px;">
+<!-- this is the div where i want to show the contrioller-->
+<div id="controldiv" style="left:50px; top:170px; position:absolute; padding:20px;">
+</div>
+<!-- controlling the movement of the controll-->
+<input type="hidden" name="rs" id="rs" value="0">
+
+</body>
+</html>

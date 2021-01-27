@@ -8,8 +8,6 @@
   <title>Post Index</title>
 </head>
 <body>
-  <div id="imagecropper"></div>
-  <div><button id="crop">Crop</button></div>
   {{ template "header" . }}
   <main class="posts-list pt4-l pb2-l ph7-l">
     {{ range $i, $post := getRows .Env "posts" }}

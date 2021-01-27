@@ -1,6 +1,6 @@
 "use strict";
 
-// entrypoint function
+// entrypoint: start reading here
 document.addEventListener("DOMContentLoaded", function main() {
   const img = document.querySelector("img[data-img-fallback]");
   if (!img) {
@@ -35,12 +35,10 @@ document.addEventListener("DOMContentLoaded", function main() {
 });
 
 function newCanvas(img) {
+  window.img = img;
   const imgstyle = window.getComputedStyle(img);
   const canvas = document.createElement("canvas");
-  img.addEventListener("load", function () {
-    render(canvas);
-  });
-  canvas.classList.add("ba", "b--dark-red");
+  canvas.classList.add("db", "ba", "b--dark-red");
   canvas.setAttribute("height", imgstyle.height);
   canvas.setAttribute("width", imgstyle.width);
   canvas.addEventListener("mousedown", mousedown(canvas));
@@ -55,12 +53,13 @@ function newCanvas(img) {
     canvas.dragging = false;
     canvas.outOfBoundsDragging = false;
   });
+  img.addEventListener("load", function () {
+    render(canvas);
+  });
   Object.assign(canvas, {
     dragging: false,
     outOfBoundsDragging: false,
     img: img,
-    imgWidth: parseInt(imgstyle.width, 10),
-    imgHeight: parseInt(imgstyle.height, 10),
     dx: 0,
     dy: 0,
     prevX: 0,
@@ -76,13 +75,24 @@ function newCanvas(img) {
 
 function render(canvas) {
   const ctx = canvas.getContext("2d");
+  window.canvas = canvas;
+  window.ctx = ctx;
+  window.draw = {
+    img: canvas.img,
+    dx: canvas.dx,
+    dy: canvas.dy,
+    dWidth: canvas.dWidth * canvas.scaleX,
+    dHeight: canvas.dHeight * canvas.scaleY,
+    scaleX: canvas.scaleX,
+    scaleY: canvas.scaleY,
+  };
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(
     canvas.img,
     0,
     0,
-    canvas.imgWidth,
-    canvas.imgHeight,
+    canvas.img.naturalWidth,
+    canvas.img.naturalHeight,
     canvas.dx,
     canvas.dy,
     canvas.dWidth * canvas.scaleX,
@@ -155,4 +165,10 @@ function mouseenter(canvas) {
       render(canvas);
     }
   };
+}
+
+function debug(canvas) {
+  const { img, dx, dy, scaleX, scaleY, dWidth, dHeight } = canvas;
+  window.vars = { img, dx, dy, scaleX, scaleY, dWidth, dHeight };
+  console.log(window.vars);
 }
