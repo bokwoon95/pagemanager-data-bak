@@ -8,31 +8,27 @@ document.addEventListener("DOMContentLoaded", function main() {
   }
   const canvas = newCanvas(img);
   document.querySelector("#resize")?.addEventListener("input", function (event) {
-    const scaleMin = 0.5;
-    const scaleMax = 2;
+    const prevScaleX = canvas.scaleX;
+    const prevScaleY = canvas.scaleY;
     const input = event.currentTarget;
     const value = parseInt(input.value, 10);
     if (isNaN(value)) {
       throw new Error(`value (${input.value}) is not a number`);
     }
-    const midpoint = (parseInt(input.max, 10) + parseInt(input.min, 10)) / 2;
-    window.midpoint = midpoint;
-    if (isNaN(midpoint)) {
+    const min = parseInt(input.min, 10);
+    const max = parseInt(input.max, 10);
+    const range = max - min;
+    if (isNaN(range)) {
       throw new Error(`max (${input.max}) or min (${input.min}) is not a number`);
     }
-    const prevScaleX = canvas.scaleX;
-    const prevScaleY = canvas.scaleY;
-    if (value === 0) {
+    const scaleMax = 2;
+    const unit = (scaleMax - 1) / range;
+    if (value <= min) {
       canvas.scaleX = 1;
       canvas.scaleY = 1;
-    } else if (value > 0) {
-      const unit = (scaleMax - 1) / (input.max - midpoint);
+    } else {
       canvas.scaleX = 1 + Math.abs(value * unit);
       canvas.scaleY = 1 + Math.abs(value * unit);
-    } else if (value < 0) {
-      const unit = (1 - scaleMin) / (midpoint - input.min);
-      canvas.scaleX = 1 - Math.abs(value * unit);
-      canvas.scaleY = 1 - Math.abs(value * unit);
     }
     const deltaX = (canvas.scaleX - prevScaleX) * canvas.dWidth;
     const deltaY = (canvas.scaleY - prevScaleY) * canvas.dHeight;
@@ -78,6 +74,8 @@ function newCanvas(img) {
     dragging: false,
     outOfBoundsDragging: false,
     img: img,
+    imgWidth: img.naturalWidth,
+    imgHeight: img.naturalHeight,
     dx: 0,
     dy: 0,
     prevX: 0,
@@ -92,14 +90,26 @@ function newCanvas(img) {
 }
 
 function render(canvas) {
+  if (canvas.dx > 0) {
+    canvas.dx = 0;
+  }
+  if (canvas.dx + canvas.width * canvas.scaleX < canvas.width) {
+    canvas.dx = canvas.width - canvas.width * canvas.scaleX;
+  }
+  if (canvas.dy > 0) {
+    canvas.dy = 0;
+  }
+  if (canvas.dy + canvas.height * canvas.scaleY < canvas.height) {
+    canvas.dy = canvas.height - canvas.height * canvas.scaleY;
+  }
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(
     canvas.img, // img
     0, // sx
     0, // sy
-    canvas.img.naturalWidth, // sWidth
-    canvas.img.naturalHeight, // sHeight
+    canvas.imgWidth, // sWidth
+    canvas.imgHeight, // sHeight
     canvas.dx, // dx
     canvas.dy, // dy
     canvas.dWidth * canvas.scaleX, // dWidth
