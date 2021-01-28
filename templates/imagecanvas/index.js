@@ -49,7 +49,6 @@ document.addEventListener("DOMContentLoaded", function main() {
 });
 
 function newCanvas(img) {
-  window.img = img;
   const imgstyle = window.getComputedStyle(img);
   const canvas = document.createElement("canvas");
   canvas.classList.add("db", "ba", "b--dark-red");
@@ -67,9 +66,6 @@ function newCanvas(img) {
     canvas.dragging = false;
     canvas.outOfBoundsDragging = false;
   });
-  img.addEventListener("load", function () {
-    render(canvas);
-  });
   Object.assign(canvas, {
     dragging: false,
     outOfBoundsDragging: false,
@@ -86,6 +82,13 @@ function newCanvas(img) {
     dHeight: parseInt(imgstyle.height, 10),
   });
   Object.seal(canvas);
+  const img2 = document.createElement("img");
+  img2.addEventListener("load", function () {
+    canvas.img = img2;
+    render(canvas);
+  });
+  img2.src = img.src;
+  window.img = canvas.img;
   return canvas;
 }
 
@@ -113,6 +116,7 @@ function render(canvas) {
     canvas.dx, // dx
     canvas.dy, // dy
     canvas.dWidth * canvas.scaleX, // dWidth
+    // 533 * canvas.scaleX, // dWidth
     canvas.dHeight * canvas.scaleY, // dHeight
   );
   window.canvas = canvas;
@@ -183,10 +187,4 @@ function mouseenter(canvas) {
       render(canvas);
     }
   };
-}
-
-function debug(canvas) {
-  const { img, dx, dy, scaleX, scaleY, dWidth, dHeight } = canvas;
-  window.vars = { img, dx, dy, scaleX, scaleY, dWidth, dHeight };
-  console.log(window.vars);
 }
