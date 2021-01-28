@@ -8,18 +8,36 @@ document.addEventListener("DOMContentLoaded", function main() {
   }
   const canvas = newCanvas(img);
   document.querySelector("#resize")?.addEventListener("input", function (event) {
+    const scaleMin = 0.5;
+    const scaleMax = 2;
     const input = event.currentTarget;
-    const magnitude = Math.abs(input.value);
-    if (input.value === 0) {
+    const value = parseInt(input.value, 10);
+    if (isNaN(value)) {
+      throw new Error(`value (${input.value}) is not a number`);
+    }
+    const midpoint = (parseInt(input.max, 10) + parseInt(input.min, 10)) / 2;
+    window.midpoint = midpoint;
+    if (isNaN(midpoint)) {
+      throw new Error(`max (${input.max}) or min (${input.min}) is not a number`);
+    }
+    const prevScaleX = canvas.scaleX;
+    const prevScaleY = canvas.scaleY;
+    if (value === 0) {
       canvas.scaleX = 1;
       canvas.scaleY = 1;
-    } else if (input.value < 0) {
-      canvas.scaleX = 1 / magnitude;
-      canvas.scaleY = 1 / magnitude;
-    } else if (input.value > 0) {
-      canvas.scaleX = magnitude;
-      canvas.scaleY = magnitude;
+    } else if (value > 0) {
+      const unit = (scaleMax - 1) / (input.max - midpoint);
+      canvas.scaleX = 1 + Math.abs(value * unit);
+      canvas.scaleY = 1 + Math.abs(value * unit);
+    } else if (value < 0) {
+      const unit = (1 - scaleMin) / (midpoint - input.min);
+      canvas.scaleX = 1 - Math.abs(value * unit);
+      canvas.scaleY = 1 - Math.abs(value * unit);
     }
+    const deltaX = (canvas.scaleX - prevScaleX) * canvas.dWidth;
+    const deltaY = (canvas.scaleY - prevScaleY) * canvas.dHeight;
+    canvas.dx -= deltaX / 2;
+    canvas.dy -= deltaY / 2;
     render(canvas);
   });
   document.querySelector("#imgpicker")?.addEventListener("input", async function (event) {
@@ -75,29 +93,19 @@ function newCanvas(img) {
 
 function render(canvas) {
   const ctx = canvas.getContext("2d");
-  window.canvas = canvas;
-  window.ctx = ctx;
-  window.draw = {
-    img: canvas.img,
-    dx: canvas.dx,
-    dy: canvas.dy,
-    dWidth: canvas.dWidth * canvas.scaleX,
-    dHeight: canvas.dHeight * canvas.scaleY,
-    scaleX: canvas.scaleX,
-    scaleY: canvas.scaleY,
-  };
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(
-    canvas.img,
-    0,
-    0,
-    canvas.img.naturalWidth,
-    canvas.img.naturalHeight,
-    canvas.dx,
-    canvas.dy,
-    canvas.dWidth * canvas.scaleX,
-    canvas.dHeight * canvas.scaleY,
+    canvas.img, // img
+    0, // sx
+    0, // sy
+    canvas.img.naturalWidth, // sWidth
+    canvas.img.naturalHeight, // sHeight
+    canvas.dx, // dx
+    canvas.dy, // dy
+    canvas.dWidth * canvas.scaleX, // dWidth
+    canvas.dHeight * canvas.scaleY, // dHeight
   );
+  window.canvas = canvas;
 }
 
 function mousedown(canvas) {
