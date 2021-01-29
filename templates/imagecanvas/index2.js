@@ -22,6 +22,18 @@ function initImagePicker(img) {
   const sliderStep = (scaleMax - 1) / (sliderMax - sliderMin);
   const widthSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
   const heightSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
+  const imgUpload = createElement("input", {
+    type: "file",
+    accept: "image/png, image/jpeg",
+    style: {
+      position: "absolute",
+      top: "10px",
+      left: "10px",
+      color: "white",
+      "font-family": "sans-serif",
+      "text-shadow": "-1px 0 black, 0 1px black, 1px 0 black, 0 -1px black",
+    },
+  });
   const overlay = createElement(
     "div",
     {
@@ -61,6 +73,7 @@ function initImagePicker(img) {
     },
     canvas,
     overlay,
+    imgUpload,
   );
   let sourceImage = document.createElement("img");
   let imageWidth = img.naturalWidth;
@@ -79,6 +92,7 @@ function initImagePicker(img) {
     render();
     img.replaceWith(imgpicker);
   });
+  imgUpload.addEventListener("input", uploadimage);
   canvas.addEventListener("mousedown", mousedown);
   canvas.addEventListener("mousemove", mousemove);
   canvas.addEventListener("mouseup", mouseup);
@@ -141,6 +155,23 @@ function initImagePicker(img) {
       scaledWidth, // dWidth
       scaledHeight, // dHeight
     );
+  }
+
+  async function uploadimage() {
+    const file = imgUpload.files[0];
+    if (file === null || file === undefined) {
+      return;
+    }
+    sourceImage = await createImageBitmap(file);
+    imageWidth = sourceImage.width;
+    imageHeight = sourceImage.height;
+    destX = 0;
+    destY = 0;
+    scaleX = 1;
+    scaleY = 1;
+    widthSlider.value = 0;
+    heightSlider.value = 0;
+    render();
   }
 
   function resizewidth() {
