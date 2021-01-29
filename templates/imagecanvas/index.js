@@ -66,14 +66,14 @@ function initImagePicker(img) {
       heightSlider,
     ),
   );
-  const { display: imgDisplay, position: imgPosition } = window.getComputedStyle(img);
+  // const { display: imgDisplay, position: imgPosition } = window.getComputedStyle(img);
   const imgpicker = createElement(
     "div",
     {
       class: img.classList,
       style: {
-        display: imgDisplay || "inline-block",
-        position: imgPosition || "relative",
+        display: "inline-block",
+        position: "relative",
         width: `${canvas.width}px`,
         height: `${canvas.height}px`,
       },
