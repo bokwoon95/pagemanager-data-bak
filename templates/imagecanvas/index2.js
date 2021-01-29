@@ -7,10 +7,7 @@ document.addEventListener("DOMContentLoaded", function main() {
   }
   initImagePicker(img);
 
-  function initImagePicker(img, opts) {
-    if (opts === null || opts === undefined) {
-      opts = {};
-    }
+  function initImagePicker(img) {
     const imgstyle = window.getComputedStyle(img);
     const canvas = createElement("canvas", { class: "ba b--dark-red", width: imgstyle.width, height: imgstyle.height });
     const overlay = newOverlay();
@@ -31,19 +28,25 @@ document.addEventListener("DOMContentLoaded", function main() {
     Object.assign(imgpicker, {
       canvas: canvas,
       overlay: overlay,
+      img: null,
+      imgWidth: null,
+      imgHeight: null,
+      destX: 0, // img top-left corner x coord on imgpicker
+      destY: 0, // img top-left corder y coord on imgpicker
+      scaleX: 1, // img width scaling factor
+      scaleY: 1, // img height scaling factor
+      // dragging
       dragging: false, // track dragging inside of imgpicker
       outOfBoundsDragging: false, // track dragging outside of imgpicker
-      img: img, // source img
-      imgWidth: null, // source img's original width (will be set later)
-      imgHeight: null, // source img's original height (will be set later)
-      destX: 0, // destination x-coordinate on canvas
-      destY: 0, // destination y-coordinate on canvas
-      widthSliderValue: 0,
-      heightSliderValue: 0,
-      scaleX: 1, // horizontal scaling factor
-      scaleY: 1, // vertical scaling factor
-      lastMouseX: 0, // last x-coordinate of mouse in imgpicker
-      lastMouseY: 0, // last y-coordinate of mouse in imgpicker
+      mouseX: null, // mouse x coord on imgpicker
+      mouseY: null, // mouse y coord on imgpicker
+      newMouseX: null, // updated mouse x coord on imgpicker
+      newMouseY: null, // updated mouse y coord on imgpicker
+      // scaling
+      sliderX: 0, // widthSlider value
+      sliderY: 0, // heightSlider value
+      newSliderX: null, // updated widthSlider value
+      newSliderY: null, // updated heightSlider value
     });
     Object.seal(imgpicker);
     canvas.addEventListener("mousedown", mousedown(imgpicker));
@@ -60,21 +63,15 @@ document.addEventListener("DOMContentLoaded", function main() {
       imgpicker.dragging = false;
       imgpicker.outOfBoundsDragging = false;
     });
-    {
-      // initial render shenanigans
-      const img2 = document.createElement("img");
-      img2.addEventListener("load", function () {
-        imgpicker.img = img2;
-        imgpicker.imgWidth = img2.naturalWidth;
-        imgpicker.imgHeight = img2.naturalHeight;
-        render(imgpicker);
-        const replaceimg = opts.replaceimg !== undefined ? opts.replaceimg : true;
-        if (replaceimg) {
-          img.replaceWith(imgpicker);
-        }
-      });
-      img2.src = img.src;
-    }
+    const imgcopy = document.createElement("img");
+    imgcopy.addEventListener("load", function () {
+      imgpicker.img = imgcopy;
+      imgpicker.imgWidth = imgcopy.naturalWidth;
+      imgpicker.imgHeight = imgcopy.naturalHeight;
+      render(imgpicker);
+      img.replaceWith(imgpicker);
+    });
+    imgcopy.src = img.src;
     return imgpicker;
   }
 
@@ -170,21 +167,79 @@ document.addEventListener("DOMContentLoaded", function main() {
     );
   }
 
+  function render(imgpicker) {
+    // Do we transfer the changes from one slider to the other slider?
+    if (imgpicker.keepAspectRatio && (imgpicker.newSliderX || imgpicker.newSliderY)) {
+      const deltaX = imgpicker.newSliderX ? imgpicker.newSliderX - imgpicker.sliderX : 0;
+      const deltaY = imgpicker.newSliderY ? imgpicker.newSliderY - imgpicker.sliderY : 0;
+      if (deltaX === 0 && deltaY > 0) {
+        imgpicker.newSliderX = imgpicker.sliderX + deltaY;
+        imgpicker.overlay.widthSlider.value = imgpicker.newSliderX.toString();
+      }
+      if (deltaY === 0 && deltaX > 0) {
+        imgpicker.newSliderY = imgpicker.sliderY + deltaX;
+        imgpicker.overlay.heightSlider.value = imgpicker.newSliderY.toString();
+      }
+    }
+    // was the widthSlider updated?
+    if (imgpicker.newSliderX !== null && impicker.newSliderX !== undefined) {
+      const widthDelta = imgpicker.canvas.width * imgpicker.sliderStep * (imgpicker.newSliderX - imgpicker.sliderX);
+      imgpicker.scaleX = 1 + Math.abs(imgpicker.newSliderX * imgpicker.overlay.sliderStep);
+      imgpicker.destX -= widthDelta / 2;
+      imgpicker.sliderX = imgpicker.newSliderX;
+      imgpicker.newSliderX = null;
+    }
+    // was the verticalSlider updated?
+    if (imgpicker.newSliderY !== null && impicker.newSliderY !== undefined) {
+      const heightDelta = imgpicker.canvas.height * imgpicker.sliderStep * (imgpicker.newSliderY - imgpicker.sliderY);
+      imgpicker.scaleY = 1 + Math.abs(imgpicker.newSliderY * imgpicker.overlay.sliderStep);
+      imgpicker.destY -= heightDelta / 2;
+      imgpicker.sliderY = imgpicker.newSliderY;
+      imgpicker.newSliderY = null;
+    }
+    // did the user drag the image? (x-axis)
+    if (imgpicker.newMouseX !== null && imgpicker.newMouseX !== undefined) {
+      const scaledWidth = imgpicker.canvas.width * imgpicker.scaleX;
+      const minDestX = imgpicker.canvas.width - scaledWidth;
+      const maxDestX = 0;
+      const deltaX = imgpicker.newMouseX - imgpicker.mouseX;
+      imgpicker.destX += deltaX;
+      if (imgpicker.destX < minDestX) {
+        imgpicker.destX = minDestX;
+      }
+      if (imgpicker.destX > maxDestX) {
+        imgpicker.destX = maxDestX;
+      }
+      imgpicker.mouseX = imgpicker.newMouseX;
+      imgpicker.newMouseX = null;
+    }
+    // did the user drag the image? (y-axis)
+    if (imgpicker.newMouseY !== null && imgpicker.newMouseY !== undefined) {
+      const scaledHeight = imgpicker.canvas.height * imgpicker.scaleY;
+      const minDestY = imgpicker.canvas.height - scaledHeight;
+      const maxDestY = 0;
+      const deltaY = imgpicker.newMouseY - imgpicker.mouseY;
+      imgpicker.destY += deltaY;
+      if (imgpicker.destY < minDestY) {
+        imgpicker.destY = minDestY;
+      }
+      if (imgpicker.destY > maxDestY) {
+        imgpicker.destY = maxDestY;
+      }
+      imgpicker.mouseY = imgpicker.newMouseY;
+      imgpicker.newMouseY = null;
+    }
+  }
+
   function resizewidth(imgpicker) {
     return function () {
       const prevScaleX = imgpicker.scaleX;
       const prevScaleY = imgpicker.scaleY;
       const input = imgpicker.overlay.widthSlider;
-      const value = parseInt(input.value, 10);
-      if (isNaN(value)) {
-        throw new Error(`value (${input.value}) is not a number`);
-      }
+      const value = parseInt(input.value, 10); // TODO: check isNaN
       const min = parseInt(input.min, 10);
       const max = parseInt(input.max, 10);
-      const range = max - min;
-      if (isNaN(range)) {
-        throw new Error(`max (${input.max}) or min (${input.min}) is not a number`);
-      }
+      const range = max - min; // TODO: check isNaN
       const scaleMax = 2;
       const unit = (scaleMax - 1) / range;
       if (value <= min) {
@@ -216,34 +271,7 @@ document.addEventListener("DOMContentLoaded", function main() {
 
   function resizeheight(imgpicker) {
     return function () {
-      const prevScaleX = imgpicker.scaleX;
-      const prevScaleY = imgpicker.scaleY;
-      const input = imgpicker.overlay.heightSlider;
-      imgpicker.widthSliderValue = input.value;
-      imgpicker.heightSliderValue = input.value;
-      const value = parseInt(input.value, 10);
-      if (isNaN(value)) {
-        throw new Error(`value (${input.value}) is not a number`);
-      }
-      const min = parseInt(input.min, 10);
-      const max = parseInt(input.max, 10);
-      const range = max - min;
-      if (isNaN(range)) {
-        throw new Error(`max (${input.max}) or min (${input.min}) is not a number`);
-      }
-      const scaleMax = 2;
-      const unit = (scaleMax - 1) / range;
-      if (value <= min) {
-        imgpicker.scaleX = 1;
-        imgpicker.scaleY = 1;
-      } else {
-        imgpicker.scaleX = 1 + Math.abs(value * unit);
-        imgpicker.scaleY = 1 + Math.abs(value * unit);
-      }
-      const deltaX = (imgpicker.scaleX - prevScaleX) * imgpicker.canvas.width;
-      const deltaY = (imgpicker.scaleY - prevScaleY) * imgpicker.canvas.height;
-      imgpicker.destX -= deltaX / 2;
-      imgpicker.destY -= deltaY / 2;
+      imgpicker.newHeightSliderValue = imgpicker.overlay.heightSlider.value;
       render(imgpicker);
     };
   }

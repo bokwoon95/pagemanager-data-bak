@@ -8,7 +8,7 @@ return {
   "templates/imagecanvas/index2.html": {
     include: [
       "templates/imagecanvas/index.css",
-      "templates/imagecanvas/index2.js",
+      "templates/imagecanvas/index3.js",
     ],
   },
   "templates/imagecanvas/tiger.html": {
