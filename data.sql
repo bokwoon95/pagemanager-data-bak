@@ -1,3 +1,5 @@
+DELETE FROM pm_routes;
+
 -- handler_url
 INSERT INTO pm_routes
     (url, handler_url)
@@ -22,7 +24,5 @@ VALUES
     ,('/post-index', 'templates/plainsimple/post-index.html')
     ,('/cyschu', 'templates/cyschu/index.html')
     ,('/image', 'templates/imagecanvas/index.html')
-    ,('/image2', 'templates/imagecanvas/index2.html')
-    ,('/tiger', 'templates/imagecanvas/tiger.html')
 ON CONFLICT (url) DO UPDATE SET content = EXCLUDED.content
 ;

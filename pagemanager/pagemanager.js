@@ -1,15 +1,23 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", function main() {
-  const img = document.querySelector("img[data-img-fallback]");
-  if (!img) {
-    return;
+  for (const img of document.querySelectorAll("img[data-pm\\.img\\.upload]")) {
+    if (!img) {
+      return;
+    }
+    initImagePicker(img);
   }
-  initImagePicker(img);
+  for (const node of document.querySelectorAll("[data-pm\\.row\\.key],[data-key-href]")) {
+  }
+  initToolbar();
 });
 
+function initToolbar() {}
+
+function initContenteditable() {}
+
 function initImagePicker(img) {
-  const canvas = createElement("canvas", { class: "ba b--dark-red", width: img.width, height: img.height });
+  const canvas = createElement("canvas", { width: img.width, height: img.height });
   const keepAspectRatio = createElement("input", {
     id: Math.random().toString(36).substring(2),
     type: "checkbox",
@@ -20,7 +28,12 @@ function initImagePicker(img) {
   const sliderMax = 100;
   const sliderMin = 0;
   const sliderStep = (scaleMax - 1) / (sliderMax - sliderMin);
-  const widthSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
+  const widthSlider = createElement("input", {
+    type: "range",
+    min: sliderMin,
+    max: sliderMax,
+    value: 0,
+  });
   const heightSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
   const imgUpload = createElement("input", {
     type: "file",
@@ -60,21 +73,23 @@ function initImagePicker(img) {
       heightSlider,
     ),
   );
+  const { display: imgDisplay, position: imgPosition } = window.getComputedStyle(img);
   const imgpicker = createElement(
     "div",
     {
-      class: "imgpicker",
+      class: img.classList,
       style: {
-        display: "inline-block",
-        position: "relative",
+        display: imgDisplay || "inline-block",
+        position: imgPosition || "relative",
         width: `${canvas.width}px`,
         height: `${canvas.height}px`,
       },
     },
     canvas,
-    overlay,
     imgUpload,
+    overlay,
   );
+  imgpicker.classList.add("imgpicker");
   let sourceImage = document.createElement("img");
   let imageWidth = img.naturalWidth;
   let imageHeight = img.naturalHeight;
@@ -88,8 +103,22 @@ function initImagePicker(img) {
   let lastHeightSliderValue = 0;
   let lastMouseX, lastMouseY;
   sourceImage.src = img.src;
-  sourceImage.addEventListener("load", function () {
+  sourceImage.setAttribute("data-pm.img.upload", img.getAttribute("data-pm.img.upload"));
+  sourceImage.setAttribute("data-pm.img.fallback", img.getAttribute("data-pm.img.fallback"));
+  sourceImage.addEventListener("load", function initialRender() {
     render();
+    img.replaceWith(imgpicker);
+  });
+  sourceImage.addEventListener("error", function fallbackRender() {
+    const fallbackSrc = sourceImage.getAttribute("data-pm.img.fallback");
+    const fallbackImage = document.createElement("img");
+    fallbackImage.src = fallbackSrc;
+    fallbackImage.addEventListener("load", function () {
+      sourceImage = fallbackImage;
+      imageWidth = fallbackImage.naturalWidth;
+      imageHeight = fallbackImage.naturalHeight;
+      render();
+    });
     img.replaceWith(imgpicker);
   });
   imgUpload.addEventListener("input", uploadimage);
