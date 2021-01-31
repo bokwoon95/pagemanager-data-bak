@@ -119,7 +119,7 @@ func (pm *PageManager) Setup() error {
 		pm.fsys,
 		renderly.AddFS("pagemanager", pagemanagerFS),
 		renderly.TemplateFuncs(pm.FuncMap()),
-		renderly.GlobalCSS("pagemanager::tachyons.min.css"),
+		renderly.GlobalCSS("pagemanager::tachyons.css"),
 		renderly.GlobalHTMLEnvFuncs(pm.EnvFunc),
 		renderly.GlobalJSEnvFuncs(pm.EnvFunc),
 	)

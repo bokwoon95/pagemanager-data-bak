@@ -615,7 +615,7 @@ async function savedata2() {
 
 function setup() {
   const globalVariables = {};
-  for (const node of document.querySelectorAll("[data-key],[data-key-href]")) {
+  for (const node of document.querySelectorAll("[data-pm\\.key],[data-pm\\.row\\.key],[data-pm\\.row\\.href]")) {
     node.setAttribute("contenteditable", true);
     node.classList.add("contenteditable");
     node.classList.remove("contenteditable-selected");

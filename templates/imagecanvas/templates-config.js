@@ -5,4 +5,10 @@ return {
       // "templates/imagecanvas/index.js",
     ],
   },
+  "templates/imagecanvas/moz.html": {
+    include: [
+      "templates/imagecanvas/moz.css",
+      "templates/imagecanvas/moz.js",
+    ],
+  },
 }

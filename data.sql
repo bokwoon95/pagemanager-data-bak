@@ -24,5 +24,6 @@ VALUES
     ,('/post-index', 'templates/plainsimple/post-index.html')
     ,('/cyschu', 'templates/cyschu/index.html')
     ,('/image', 'templates/imagecanvas/index.html')
+    ,('/moz', 'templates/imagecanvas/moz.html')
 ON CONFLICT (url) DO UPDATE SET content = EXCLUDED.content
 ;
