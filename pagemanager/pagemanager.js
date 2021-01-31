@@ -1,7 +1,7 @@
 "use strict";
 
 document.addEventListener("DOMContentLoaded", function main() {
-  for (const node of document.querySelectorAll("[data-pm\\.row\\.key],[data-key-href]")) {
+  for (const node of document.querySelectorAll("[data-pm\\.key],[data-pm\\.row\\.key],[data-pm\\.row\\.href]")) {
     initContenteditable(node);
   }
   for (const img of document.querySelectorAll("img[data-pm\\.img\\.upload]")) {
@@ -19,9 +19,6 @@ function createElement(tag, attributes, ...children) {
   const element = document.createElement(tag);
   for (const [attribute, value] of Object.entries(attributes || {})) {
     if (attribute === "style") {
-      // for (const [k, v] of Object.entries(value)) {
-      //   element.style[k] = v;
-      // }
       Object.assign(element.style, value);
       continue;
     }
@@ -41,7 +38,25 @@ function initContenteditable(node) {
 }
 
 function initImagePicker(img) {
-  const canvas = createElement("canvas", { width: img.width, height: img.height });
+  let sourceImage = document.createElement("img"); // source image that we render to the canvas
+  let dragging = false; // track mouse dragging inside the canvas
+  let outOfBoundsDragging = false; // track mouse dragging outside the canvas
+  let destX = 0; // x-coord of top-left corner of sourceImage on the canvas
+  let destY = 0; // y-coord of top-left corner of sourceImage on the canvas
+  let scaleX = 1; // width-scaling factor of sourceImage on the canvas
+  let scaleY = 1; // height-scaling factor of sourceImage on the canvas
+  let lastWidthSliderValue = 0; // track widthSlider values
+  let lastHeightSliderValue = 0; // track heightSlider values
+  let lastMouseX, lastMouseY; // track mouse coords in the canvas
+  const canvas = createElement("canvas", {
+    width: img.width,
+    height: img.height,
+    onmousedown: mousedown,
+    onmousemove: mousemove,
+    onmouseup: mouseup,
+    onmouseout: mouseout,
+    onmouseenter: mouseenter,
+  });
   const keepAspectRatio = createElement("input", {
     id: Math.random().toString(36).substring(2),
     type: "checkbox",
@@ -57,8 +72,15 @@ function initImagePicker(img) {
     min: sliderMin,
     max: sliderMax,
     value: 0,
+    oninput: resizewidth,
   });
-  const heightSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
+  const heightSlider = createElement("input", {
+    type: "range",
+    min: sliderMin,
+    max: sliderMax,
+    value: 0,
+    oninput: resizeheight,
+  });
   const imgUpload = createElement("input", {
     type: "file",
     accept: "image/png, image/jpeg",
@@ -70,8 +92,9 @@ function initImagePicker(img) {
       "font-family": "sans-serif",
       "text-shadow": "-1px 0 black, 0 1px black, 1px 0 black, 0 -1px black",
     },
+    oninput: uploadimage,
   });
-  const overlay = createElement(
+  const resizer = createElement(
     "div",
     {
       style: {
@@ -104,27 +127,15 @@ function initImagePicker(img) {
       style: {
         display: "inline-block",
         position: "relative",
-        width: `${canvas.width}px`,
-        height: `${canvas.height}px`,
+        width: `${img.width}px`,
+        height: `${img.height}px`,
       },
     },
     canvas,
     imgUpload,
-    overlay,
+    resizer,
   );
   imgpicker.classList.add("imgpicker");
-  let sourceImage = document.createElement("img");
-  let imageWidth = img.naturalWidth;
-  let imageHeight = img.naturalHeight;
-  let dragging = false;
-  let outOfBoundsDragging = false;
-  let destX = 0;
-  let destY = 0;
-  let scaleX = 1;
-  let scaleY = 1;
-  let lastWidthSliderValue = 0;
-  let lastHeightSliderValue = 0;
-  let lastMouseX, lastMouseY;
   sourceImage.src = img.src;
   sourceImage.setAttribute("data-pm.img.upload", img.getAttribute("data-pm.img.upload"));
   sourceImage.setAttribute("data-pm.img.fallback", img.getAttribute("data-pm.img.fallback"));
@@ -138,20 +149,10 @@ function initImagePicker(img) {
     fallbackImage.src = fallbackSrc;
     fallbackImage.addEventListener("load", function () {
       sourceImage = fallbackImage;
-      imageWidth = fallbackImage.naturalWidth;
-      imageHeight = fallbackImage.naturalHeight;
       render();
     });
     img.replaceWith(imgpicker);
   });
-  imgUpload.addEventListener("input", uploadimage);
-  canvas.addEventListener("mousedown", mousedown);
-  canvas.addEventListener("mousemove", mousemove);
-  canvas.addEventListener("mouseup", mouseup);
-  canvas.addEventListener("mouseout", mouseout);
-  canvas.addEventListener("mouseenter", mouseenter);
-  widthSlider.addEventListener("input", resizewidth);
-  heightSlider.addEventListener("input", resizeheight);
   document.addEventListener("mouseup", function (event) {
     if (imgpicker.contains(event.target)) {
       return;
@@ -168,6 +169,7 @@ function initImagePicker(img) {
     const minDestY = canvas.height - scaledHeight;
     const maxDestY = 0;
     const ctx = canvas.getContext("2d");
+    // Boundary checks
     if (destX < minDestX) {
       destX = minDestX;
     }
@@ -183,10 +185,6 @@ function initImagePicker(img) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(
       sourceImage, // image
-      0, // sx
-      0, // sy
-      imageWidth, // sWidth
-      imageHeight, // sHeight
       destX, // dx
       destY, // dy
       scaledWidth, // dWidth
@@ -200,8 +198,6 @@ function initImagePicker(img) {
       return;
     }
     sourceImage = await createImageBitmap(file);
-    imageWidth = sourceImage.width;
-    imageHeight = sourceImage.height;
     destX = 0;
     destY = 0;
     scaleX = 1;
@@ -220,6 +216,7 @@ function initImagePicker(img) {
     lastWidthSliderValue = widthSliderValue;
     if (keepAspectRatio.checked) {
       let heightSliderValue = parseInt(heightSlider.value, 10) + sliderDelta;
+      // Boundary checks
       if (heightSliderValue < sliderMin) {
         heightSliderValue = sliderMin;
       }
@@ -244,6 +241,7 @@ function initImagePicker(img) {
     lastHeightSliderValue = heightSliderValue;
     if (keepAspectRatio.checked) {
       let widthSliderValue = parseInt(widthSlider.value, 10) + sliderDelta;
+      // Boundary checks
       if (widthSliderValue < sliderMin) {
         widthSliderValue = sliderMin;
       }
@@ -484,18 +482,18 @@ function initToolbar() {
     modifylinkButton,
     saveButton,
   );
-  const toolbarBacking = createElement("div", { id: "pm-toolbar-backing", class: "pm-toolbar-backing" }, toolbar);
-  const resizeToolbarBacking = function () {
+  const toolbarPadding = createElement("div", { class: "pm-toolbar-padding" });
+  const resizeToolbarPadding = function () {
     const toolbarStyle = window.getComputedStyle(toolbar);
     const height =
       toolbar.offsetHeight +
       parseInt(toolbarStyle.getPropertyValue("margin-top"), 10) +
       parseInt(toolbarStyle.getPropertyValue("margin-bottom"), 10);
-    toolbarBacking.style.marginBottom = `${height}px`;
+    toolbarPadding.style.marginBottom = `${height}px`;
   };
-  resizeToolbarBacking();
-  window.addEventListener("resize", resizeToolbarBacking);
-  document.querySelector("body")?.append(toolbarBacking);
+  window.addEventListener("load", resizeToolbarPadding);
+  window.addEventListener("resize", resizeToolbarPadding);
+  document.querySelector("body")?.append(toolbar, toolbarPadding);
 
   function isContentEditable(node) {
     return !!node?.getAttribute && node.getAttribute("contenteditable") === "true";
