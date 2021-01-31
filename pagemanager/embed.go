@@ -8,5 +8,5 @@ import "embed"
 var files embed.FS
 
 func init() {
-	builtin = files
+   pagemanagerFS = files
 }

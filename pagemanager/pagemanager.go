@@ -28,12 +28,12 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
-var builtin fs.FS
+var pagemanagerFS fs.FS
 
 func init() {
 	flag.Parse()
-	if builtin == nil {
-		builtin = os.DirFS(renderly.AbsDir("."))
+	if pagemanagerFS == nil {
+		pagemanagerFS = os.DirFS(renderly.AbsDir("."))
 	}
 }
 
@@ -117,9 +117,9 @@ func (pm *PageManager) Setup() error {
 	// render
 	pm.renderly, err = renderly.New(
 		pm.fsys,
-		renderly.AltFS("builtin", builtin),
+		renderly.AddFS("pagemanager", pagemanagerFS),
 		renderly.TemplateFuncs(pm.FuncMap()),
-		renderly.GlobalCSS(nil, "builtin::tachyons.min.css"),
+		renderly.GlobalCSS("pagemanager::tachyons.min.css"),
 		renderly.GlobalHTMLEnvFuncs(pm.EnvFunc),
 		renderly.GlobalJSEnvFuncs(pm.EnvFunc),
 	)
@@ -252,7 +252,7 @@ func (pm *PageManager) Middleware(next http.Handler) http.Handler {
 			}
 			includefiles = append(includefiles, metadata.Include...)
 			if editTemplate {
-				includefiles = append(includefiles, "builtin::editor.js", "builtin::editor.css")
+				includefiles = append(includefiles, "pagemanager::pagemanager.js", "pagemanager::pagemanager.css")
 			}
 			data := make(map[string]interface{})
 			if len(metadata.Env) > 0 {

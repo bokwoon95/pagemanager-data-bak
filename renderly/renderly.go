@@ -343,32 +343,16 @@ func TemplateOpts(option ...string) Option {
 	}
 }
 
-func GlobalCSS(fsys fs.FS, filenames ...string) Option {
+func GlobalCSS(filenames ...string) Option {
 	return func(ry *Renderly) error {
-		if fsys == nil {
-			ry.globalcss = append(ry.globalcss, filenames...)
-			return nil
-		}
-		pluginName := uuid.New().String()
-		ry.fsys.altFS[pluginName] = fsys
-		for _, filename := range filenames {
-			ry.globalcss = append(ry.globalcss, pluginName+"::"+filename)
-		}
+		ry.globalcss = append(ry.globalcss, filenames...)
 		return nil
 	}
 }
 
-func GlobalJS(fsys fs.FS, filenames ...string) Option {
+func GlobalJS(filenames ...string) Option {
 	return func(ry *Renderly) error {
-		if fsys == nil {
-			ry.globaljs = append(ry.globaljs, filenames...)
-			return nil
-		}
-		pluginName := uuid.New().String()
-		ry.fsys.altFS[pluginName] = fsys
-		for _, filename := range filenames {
-			ry.globaljs = append(ry.globaljs, pluginName+"::"+filename)
-		}
+		ry.globaljs = append(ry.globaljs, filenames...)
 		return nil
 	}
 }
@@ -418,7 +402,7 @@ func GlobalJSEnvFuncs(fns ...EnvFunc) Option {
 	}
 }
 
-func AltFS(name string, fsys fs.FS) Option {
+func AddFS(name string, fsys fs.FS) Option {
 	return func(ry *Renderly) error {
 		ry.fsys.altFS[name] = fsys
 		return nil

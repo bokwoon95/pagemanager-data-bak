@@ -21,12 +21,7 @@ function initImagePicker(img) {
   const sliderMax = 100;
   const sliderMin = 0;
   const sliderStep = (scaleMax - 1) / (sliderMax - sliderMin);
-  const widthSlider = createElement("input", {
-    type: "range",
-    min: sliderMin,
-    max: sliderMax,
-    value: 0,
-  });
+  const widthSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
   const heightSlider = createElement("input", { type: "range", min: sliderMin, max: sliderMax, value: 0 });
   const imgUpload = createElement("input", {
     type: "file",
