@@ -48,6 +48,8 @@ document.addEventListener("DOMContentLoaded", function main() {
           "background-color": "hsl(0, 100%, 50%, 0.5)",
         },
       });
+      document.querySelectorAll("#pm-delete-overlay").forEach((overlay) => overlay.remove());
+      document.body.append(overlay);
       overlay.addEventListener("mouseout", function () {
         overlay.remove();
       });
@@ -56,8 +58,6 @@ document.addEventListener("DOMContentLoaded", function main() {
         node.remove();
         overlay.remove();
       });
-      document.querySelectorAll("#pm-delete-overlay").forEach((node) => node.remove());
-      document.body.append(overlay);
     };
   }
 
@@ -91,6 +91,11 @@ document.addEventListener("DOMContentLoaded", function main() {
       return Object.assign({ class: "pm-toolbar-button" }, attributes);
     };
     const labelAttributes = { class: "pm-toolbar-button-label" };
+    const deleteButton = pmCreateElement(
+      "button",
+      buttonAttributes({ title: "delete element under caret", onclick: deleteElement }),
+      "Delete",
+    );
     const toolbar = pmCreateElement(
       "div",
       { class: "pm-toolbar" },
@@ -263,11 +268,7 @@ document.addEventListener("DOMContentLoaded", function main() {
         pmCreateElement("span", labelAttributes, "modify link"),
       ),
       // Delete
-      pmCreateElement(
-        "button",
-        buttonAttributes({ title: "delete element under caret", onclick: deleteElement }),
-        "Delete",
-      ),
+      deleteButton,
       // Save
       pmCreateElement("button", buttonAttributes({ title: "save changes to page", onclick: save }), "Save"),
     );
@@ -584,17 +585,99 @@ document.addEventListener("DOMContentLoaded", function main() {
     function deleteElement() {
       deleteMode = true;
       document.body.style.cursor = "crosshair";
+      deleteButton.style.filter = "invert(100%)";
     }
     document.addEventListener("mousedown", function () {
       if (deleteMode) {
         deleteMode = false;
         document.body.style.cursor = "auto";
         document.querySelectorAll("#pm-delete-overlay").forEach((node) => node.remove());
+        deleteButton.style.filter = "";
       }
     });
 
-    function save() {
-      //
+    function getRowDetails(node) {
+      if (!node) {
+        return undefined;
+      }
+      if (node.nodeName === "BODY" || node.nodeName === "HTML") {
+        return undefined;
+      }
+      while (node.parentNode && node.parentNode.nodeName !== "BODY") {
+        const name = node.parentNode.getAttribute("data-pm.row");
+        const indexStr = node.parentNode.getAttribute("data-pm.rowindex");
+        if (name && indexStr) {
+          const index = parseInt(indexStr, 10);
+          if (isNaN(index)) {
+            throw new Error(`${indexStr} is not a number`);
+          }
+          return { name, index };
+        }
+        node = node.parentNode;
+      }
+      return undefined;
+    }
+
+    async function save() {
+      const data = {};
+      const indextracker = {};
+      const pageID = window.Env("PageID").replace(/\/edit$/, "");
+      for (const node of document.querySelectorAll("[data-pm\\.row]")) {
+        if (node.getAttribute("hidden") !== null) {
+          continue;
+        }
+        const rowname = node.getAttribute("data-pm.row");
+        const index = indextracker[rowname] || 0;
+        node.setAttribute("data-pm.rowindex", `${index}`);
+        indextracker[rowname] = index + 1;
+      }
+      for (const node of document.querySelectorAll("[data-pm\\.key]")) {
+        const ID = node.getAttribute("data-pm.id") || pageID;
+        const key = node.getAttribute("data-pm.key");
+        const value = node.innerHTML;
+        set(data, [ID, key], value);
+      }
+      for (const node of document.querySelectorAll("[data-pm\\.row\\.key],[data-pm\\.row\\.href]")) {
+        const row = getRowDetails(node);
+        if (!row) {
+          continue;
+        }
+        const ID = node.getAttribute("data-pm.id") || pageID;
+        const key = node.getAttribute("data-pm.row.key");
+        const hrefKey = node.getAttribute("data-pm.row.href");
+        const value = node.innerHTML;
+        const hrefValue = node.getAttribute("href");
+        if (key) {
+          set(data, [ID, row.name, row.index, key], value);
+        }
+        if (hrefKey) {
+          set(data, [ID, row.name, row.index, hrefKey], hrefValue);
+        }
+      }
+      const imgs = [];
+      for (const canvas of document.querySelectorAll("canvas[data-pm\\.img\\.upload]")) {
+        const url = canvas.getAttribute("data-pm.img.upload");
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve));
+        imgs.push({ url, blob });
+      }
+      console.log(data);
+      console.log(imgs);
+      const formdata = new FormData();
+      for (const [key, value] of Object.entries(data)) {
+        formdata.append(key, JSON.stringify(value));
+      }
+      for (const img of imgs) {
+        formdata.append("imgs[]", img.blob, img.url);
+      }
+      // Display the key/value pairs
+      for (const [key, value] of formdata.entries()) {
+        console.log(key + ", " + value);
+      }
+      const res = await fetch("/upload", {
+        method: "POST",
+        body: formdata,
+      });
+      console.log(res);
     }
 
     function pathToKeys(path) {
@@ -668,6 +751,7 @@ document.addEventListener("DOMContentLoaded", function main() {
     let lastHeightSliderValue = 0; // track heightSlider values
     let lastMouseX, lastMouseY; // track mouse coords in the canvas
     const canvas = pmCreateElement("canvas", {
+      "data-pm.img.upload": img.getAttribute("data-pm.img.upload") || "",
       width: img.width,
       height: img.height,
       onmousedown: mousedown,

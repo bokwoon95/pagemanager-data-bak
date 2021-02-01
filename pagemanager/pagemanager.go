@@ -143,7 +143,29 @@ func (pm *PageManager) newmux(defaultHandler http.Handler) http.Handler {
 	})
 	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseMultipartForm(10 << 20)
-		fmt.Println(r.FormValue("data"))
+		a := r.FormValue("/image")
+		b := r.FormValue("imagecanvas-globals")
+		cFile, cHeader, err := r.FormFile("imgs[]")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer cFile.Close()
+		f, err := os.OpenFile("./templates/imagecanvas/image.jpg", os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		_, _ = io.Copy(f, cFile)
+		_, err = pm.db.Exec("INSERT INTO pm_templatedata (id, data) VALUES (?, ?), (?, ?) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data", "/image", a, "imagecanvas-globals", b)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Println(a)
+		fmt.Println(b)
+		fmt.Println(cHeader.Filename)
 	})
 	return mux
 }
@@ -590,6 +612,7 @@ func (pm *PageManager) FuncMap() map[string]interface{} {
 		"getValueWithID": pm.getValueWithID,
 		"getRows":        pm.getRows,
 		"getRowsWithID":  pm.getRowsWithID,
+		"notNull":        notNull,
 		"spew": func(a ...interface{}) template.HTML {
 			s := spew.Sdump(a...)
 			return template.HTML("<pre>" + s + "</pre>")
@@ -614,9 +637,23 @@ func (pm *PageManager) getValueWithID(env map[string]interface{}, key, id string
 		return nil, err
 	}
 	if value.Valid {
-		return template.HTML(value.String), nil
+		return value.String, nil
 	}
 	return nil, nil
+}
+
+func notNull(val interface{}) bool {
+	if val == nil {
+		return false
+	}
+	switch val := val.(type) {
+	case string:
+		return true
+	case sql.NullString:
+		return val.Valid
+	default:
+		return false
+	}
 }
 
 func (pm *PageManager) getRows(env map[string]interface{}, key string) ([]interface{}, error) {

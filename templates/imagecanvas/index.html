@@ -25,13 +25,13 @@
   </nav>
   <header class="hero-banner flex justify-center items-center" data-pm.img.fallback="/static/templates/plainsimple/hero.jpg">
     <div class="tc white">
-      {{ $title := getValueWithID .Env "title" "bokwoon95/plainsimple:globals" }}
-      <h1 class="f1 text-border" data-pm.key="title" data-pm.id="bokwoon95/plainsimple:globals">
-        {{- if ne nil $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end -}}
+      {{ $title := getValueWithID .Env "title" "imagecanvas-globals" }}
+      <h1 class="f1 text-border" data-pm.key="title" data-pm.id="imagecanvas-globals">
+        {{- if notNull $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end -}}
       </h1>
-      {{ $subtitle := getValueWithID .Env "subtitle" "bokwoon95/plainsimple:globals" }}
-      <h2 class="f3 text-border tl" data-pm.key="subtitle" data-pm.id="bokwoon95/plainsimple:globals">
-        {{- if ne nil $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end -}}
+      {{ $subtitle := getValueWithID .Env "subtitle" "imagecanvas-globals" }}
+      <h2 class="f3 text-border tl" data-pm.key="subtitle" data-pm.id="imagecanvas-globals">
+        {{- if notNull $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end -}}
       </h2>
     </div>
   </header>
@@ -87,14 +87,14 @@
     </article>
     {{ end }}
     {{ end }}
-    <img src="/static/templates/imagecanvas/face.jpg" data-pm.img.upload="/static/templates/imagecanvas/image.jpg" data-pm.img.fallback="/static/templates/imagecanvas/face.jpg" height="400" width="600">
+    <img src="/static/templates/imagecanvas/image.jpg" data-pm.img.upload="/static/templates/imagecanvas/image.jpg" data-pm.img.fallback="/static/templates/imagecanvas/face.jpg" height="400" width="600">
   </main>
   <footer class="flex justify-center mt5 pb3">
-    {{ $owner := getValueWithID .Env "owner" "bokwoon95/plainsimple:globals" }}
+    {{ $owner := getValueWithID .Env "owner" "imagecanvas-globals" }}
     <div>
       Copyright © 2020
-      <span data-pm.key="owner" data-pm.id="bokwoon95/plainsimple:globals">
-        {{- if ne nil $owner }}{{ $owner | safeHTML }}{{ else }}Robert Table{{ end -}}
+      <span data-pm.key="owner" data-pm.id="imagecanvas-globals">
+        {{- if notNull $owner }}{{ $owner | safeHTML }}{{ else }}Robert Table{{ end -}}
       </span>. All rights reserved.
     </div>
   </footer>
