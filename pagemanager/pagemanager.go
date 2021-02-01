@@ -163,9 +163,7 @@ func (pm *PageManager) newmux(defaultHandler http.Handler) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Println(a)
-		fmt.Println(b)
-		fmt.Println(cHeader.Filename)
+		_ = cHeader
 	})
 	return mux
 }
@@ -667,6 +665,7 @@ func (pm *PageManager) getRows(env map[string]interface{}, key string) ([]interf
 func (pm *PageManager) getRowsWithID(env map[string]interface{}, key, id string) ([]interface{}, error) {
 	var s sql.NullString
 	query := "SELECT json_extract(data, ?) FROM pm_templatedata WHERE id = ?"
+	id = strings.TrimSuffix(id, "/edit")
 	err := pm.db.QueryRow(query, "$."+key, id).Scan(&s)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err

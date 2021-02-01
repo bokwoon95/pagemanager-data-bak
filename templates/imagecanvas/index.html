@@ -30,7 +30,7 @@
         {{- if notNull $title }}{{ $title | safeHTML }}{{ else }}My Blog{{ end -}}
       </h1>
       {{ $subtitle := getValueWithID .Env "subtitle" "imagecanvas-globals" }}
-      <h2 class="f3 text-border tl" data-pm.key="subtitle" data-pm.id="imagecanvas-globals">
+      <h2 class="f3 text-border tc" data-pm.key="subtitle" data-pm.id="imagecanvas-globals">
         {{- if notNull $subtitle }}{{ $subtitle | safeHTML }}{{ else }}Where I write about <em>stuff</em>{{ end -}}
       </h2>
     </div>
@@ -73,6 +73,7 @@
       <div class="mt2 mb4"><a href="" data-pm.row.href="link">read more</a></div>
       <hr>
     </article>
+    {{ end }}
     {{ if .Env.EditMode }}
     <div id="article-injection"></div>
     <div class="pv2">
@@ -85,7 +86,6 @@
       <div class="mt2 mb4"><a href="">read more</a></div>
       <hr>
     </article>
-    {{ end }}
     {{ end }}
     <img src="/static/templates/imagecanvas/image.jpg" data-pm.img.upload="/static/templates/imagecanvas/image.jpg" data-pm.img.fallback="/static/templates/imagecanvas/face.jpg" height="400" width="600">
   </main>
