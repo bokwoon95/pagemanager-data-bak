@@ -23,7 +23,7 @@ VALUES
     ('/editor', 'templates/editor/editor.html')
     ,('/post-index', 'templates/plainsimple/post-index.html')
     ,('/cyschu', 'templates/cyschu/index.html')
-    ,('/image', 'templates/imagecanvas/index.html')
+    ,('/blog', 'templates/imagecanvas/index.html')
     ,('/moz', 'templates/imagecanvas/moz.html')
 ON CONFLICT (url) DO UPDATE SET content = EXCLUDED.content
 ;

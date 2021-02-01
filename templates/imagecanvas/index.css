@@ -4,9 +4,9 @@ html {
 }
 
 .hero-banner {
-  width: 100vw;
+  width: 100%;
   height: 400px;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url(/static/templates/imagecanvas/image.jpg);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url(/static/templates/imagecanvas/hero.jpg);
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: local;

@@ -10,9 +10,9 @@
   <nav class="absolute w-100">
     <ul class="flex flex-wrap justify-end list pa0">
       {{ if .Env.EditMode }}
-      <button class="nav-link" data-pm.template="new-section" data-pm.insertafter="injection">Add Section</button>
-      <li id="new-section" class="nav-link" data-pm.row="nav"><a href="" data-pm.row.href="link" data-pm.row.key="title">New Section</a></li>
-      <li id="injection"></li>
+      <button class="nav-link" data-pm.template="new-nav" data-pm.insertafter="nav-injection">Add Section</button>
+      <li id="new-nav" class="nav-link" data-pm.row="nav"><a href="" data-pm.row.href="link" data-pm.row.key="title">Section</a></li>
+      <li id="nav-injection"></li>
       {{ end }}
       {{ range $i, $row := getRows .Env "nav" }}
       <li class="nav-link" data-pm.row="nav"><a href="{{ $row.link }}" data-pm.row.href="link" data-pm.row.key="title">{{ $row.title }}</a></li>
@@ -39,38 +39,38 @@
     {{ range $i, $post := getRows .Env "posts" }}
     <article data-pm.row="posts">
       <div class="f6 mt2 gray" data-pm.row.key="date">{{ $post.date | safeHTML }}</div>
-      <div class="f3 fw7 lh-title" data-pm.row.key="title">{{ $post.title | safeHTML }}</div>
+      <div class="f3 fw7 lh-title"><a href="{{ $post.link }}" data-pm.row.href="link" data-pm.row.key="title">{{ $post.title | safeHTML }}</a></div>
       <div class="mt3" data-pm.row.key="summary">{{ $post.summary | safeHTML }}</div>
-      <div class="mt2 mb4"><a href="{{ $post.link }}" data-pm.row.href="link">read more</a></div>
+      <div class="mt2 mb4"><a href="{{ $post.link }}">read more</a></div>
       <hr>
     </article>
     {{ else }}
     <article data-pm.row="posts">
       <div class="f6 mt2 gray" data-pm.row.key="date">2020 June 18</div>
-      <div class="f3 fw7 lh-title" data-pm.row.key="title"><a href="">HASH: a free, online platform for modeling the world</a></div>
+      <div class="f3 fw7 lh-title"><a href="" data-pm.row.href="link" data-pm.row.key="title">HASH: a free, online platform for modeling the world</a></div>
       <div class="mt3" data-pm.row.key="summary">Sometimes <b>simulating</b> complex systems is the best way to understand them.</div>
-      <div class="mt2 mb4"><a href="" data-pm.row.href="link">read more</a></div>
+      <div class="mt2 mb4"><a href="">read more</a></div>
       <hr>
     </article>
     <article data-pm.row="posts">
       <div class="f6 mt2 gray" data-pm.row.key="date">2019 December 05</div>
-      <div class="f3 fw7 lh-title" data-pm.row.key="title"><a href="">So, how’s that retirement thing going, anyway?</a></div>
+      <div class="f3 fw7 lh-title"><a href="" data-pm.row.href="link" data-pm.row.key="title">So, how’s that retirement thing going, anyway?</a></div>
       <div class="mt3" data-pm.row.key="summary">For the last couple of months, Prashanth Chandrasekar has been getting settled in as the new CEO of Stack Overflow. I’m still going on some customer calls…</div>
-      <div class="mt2 mb4"><a href="" data-pm.row.href="link">read more</a></div>
+      <div class="mt2 mb4"><a href="">read more</a></div>
       <hr>
     </article>
     <article data-pm.row="posts">
       <div class="f6 mt2 gray" data-pm.row.key="date">2019 September 24</div>
-      <div class="f3 fw7 lh-title" data-pm.row.key="title"><a href="">Welcome, Prashanth!</a></div>
+      <div class="f3 fw7 lh-title"><a href="" data-pm.row.href="link" data-pm.row.key="title">Welcome, Prashanth!</a></div>
       <div class="mt3" data-pm.row.key="summary">Last March, I shared that we were starting to look for a new CEO for Stack Overflow. We were looking for that rare combination of someone who…</div>
-      <div class="mt2 mb4"><a href="" data-row-href="link">read more</a></div>
+      <div class="mt2 mb4"><a href="">read more</a></div>
       <hr>
     </article>
     <article data-pm.row="posts">
       <div class="f6 mt2 gray" data-pm.row.key="date">2019 March 28</div>
-      <div class="f3 fw7 lh-title" data-pm.row.key="title"><a href=''>The next CEO of Stack Overflow</a></div>
+      <div class="f3 fw7 lh-title"><a href="" data-pm.row.href="link" data-pm.row.key="title">The next CEO of Stack Overflow</a></div>
       <div class="mt3" data-pm.row.key="summary">We’re looking for a new CEO for Stack Overflow. I’m stepping out of the day-to-day and up to the role of Chairman of the Board.</div>
-      <div class="mt2 mb4"><a href="" data-row-href="link">read more</a></div>
+      <div class="mt2 mb4"><a href="" data-pm.row.href="link">read more</a></div>
       <hr>
     </article>
     {{ if .Env.EditMode }}
@@ -79,10 +79,10 @@
       <button data-pm.template="new-article" data-pm.insertafter="article-injection">Add Article</button>
     </div>
     <article id="new-article" data-pm.row="posts">
-      <div class="f6 mt2 gray" data-pm.row.key="date">YYYY Month DD</div>
-      <div class="f3 fw7 lh-title" data-pm.row.key="title"><a href=''>Title</a></div>
-      <div class="mt3" data-pm.row.key="summary">summary</div>
-      <div class="mt2 mb4"><a href="" data-row-href="link">read more</a></div>
+      <div class="f6 mt2 gray" data-pm.row.key="date">2020 January 01</div>
+      <div class="f3 fw7 lh-title"><a href="" data-pm.row.href="link" data-pm.row.key="title">Lorem ipsum dolor sit amet</a></div>
+      <div class="mt3" data-pm.row.key="summary">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>
+      <div class="mt2 mb4"><a href="">read more</a></div>
       <hr>
     </article>
     {{ end }}
