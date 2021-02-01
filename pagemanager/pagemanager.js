@@ -13,21 +13,19 @@ document.addEventListener("DOMContentLoaded", function main() {
     node.addEventListener("mouseenter", hoverdel(node));
   }
   for (const node of document.querySelectorAll("[data-pm\\.template]")) {
+    const templateSelector = node.getAttribute("data-pm.template");
+    const insertSelector = node.getAttribute("data-pm.insertafter");
+    const template = document.querySelector(`#${templateSelector}`);
+    const insertPoint = document.querySelector(`#${insertSelector}`);
+    template.setAttribute("hidden", "true");
+    insertPoint.setAttribute("hidden", "true");
     node.addEventListener("click", function () {
-      const templateSelector = node.getAttribute("data-pm.template");
-      const insertSelector = node.getAttribute("data-pm.insertafter");
-      const template = document.querySelector(`#${templateSelector}`);
-      const insertPoint = document.querySelector(`#${insertSelector}`);
       const newNode = template.cloneNode(true);
       newNode.removeAttribute("id");
       newNode.removeAttribute("hidden");
       newNode.addEventListener("mouseenter", hoverdel(newNode));
-      insertAfter(insertPoint, newNode);
+      insertPoint.parentNode.insertBefore(newNode, insertPoint.nextSibling);
     });
-  }
-
-  function insertAfter(referenceNode, newNode) {
-    referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
   }
 
   function hoverdel(node) {
@@ -591,6 +589,7 @@ document.addEventListener("DOMContentLoaded", function main() {
       if (deleteMode) {
         deleteMode = false;
         document.body.style.cursor = "auto";
+        document.querySelectorAll("#pm-delete-overlay").forEach((node) => node.remove());
       }
     });
 

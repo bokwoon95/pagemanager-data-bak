@@ -30,24 +30,13 @@ html {
   position: relative;
   top: 1px;
 }
-[data-key],
-[data-endkey] {
+[data-pm\.key] {
   background-color: hsla(121, 54%, 68%, 0.3);
   border-width: thin;
   border-style: dashed;
 }
-.contenteditable {
-  background-color: hsla(121, 54%, 68%, 0.3);
-  border-width: thin;
-  border-style: dashed;
-}
-.contenteditable-readonly {
-  background-color: hsla(121, 54%, 25%, 0.3);
-  border-width: thin;
-  border-style: dashed;
-}
-.contenteditable-selected {
-  background-color: hsla(10, 34%, 79%, 0.3);
+[data-pm\.row\.key],[data-pm\.row\.href] {
+  background-color: hsla(17, 67%, 60%, 0.3);
   border-width: thin;
   border-style: dashed;
 }
