@@ -8,7 +8,12 @@
 </head>
 <body>
   <nav class="absolute w-100">
-    <ul class="flex flex-wrap justify-end list pa0" data-pm.row="header-sections">
+    <ul class="flex flex-wrap justify-end list pa0">
+      {{ if .Env.EditMode }}
+      <li class="nav-link" data-pm.template="new-section" data-pm.insertafter="injection"><a>Add Section</a></li>
+      <li id="new-section" class="nav-link" data-pm.row="nav" hidden><a href="" data-pm.row.href="link" data-pm.row.key="title">New Section</a></li>
+      {{ end }}
+      <li id="injection" hidden></li>
       {{ range $i, $row := getRows .Env "nav" }}
       <li class="nav-link" data-pm.row="nav"><a href="{{ $row.link }}" data-pm.row.href="link" data-pm.row.key="title">{{ $row.title }}</a></li>
       {{ else }}
