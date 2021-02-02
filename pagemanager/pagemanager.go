@@ -423,7 +423,7 @@ type Plugin interface {
 var datafolder = flag.String("pm-datafolder", "", "")
 
 func LocateDataFolder() (string, error) {
-	const datafoldername = "pagemanager-data"
+	const datafoldername = "pagemanager-data-bak"
 	var dirnames []string
 	cwd, err := os.Getwd()
 	if err != nil {
